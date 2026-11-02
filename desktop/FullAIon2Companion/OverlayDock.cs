@@ -16,9 +16,9 @@ public sealed class OverlayDock : Window
 {
     static readonly Brush Face = Frozen(Color.FromArgb(215, 13, 20, 27)), Edge = Frozen(Color.FromArgb(200, 51, 87, 91)),
         Glyph = Frozen(Color.FromRgb(0xC3, 0xCF, 0xD9)), Hover = Frozen(Color.FromArgb(255, 0x2B, 0x41, 0x4D)), On = Frozen(Color.FromRgb(0x71, 0xDE, 0xD6));
-    readonly Button drops, minimap, troop, news, abyss;
+    readonly Button drops, minimap, troop, news, abyss, craft;
     readonly System.Windows.Shapes.Ellipse newsDot = new() { Width = 8, Height = 8, Fill = Frozen(Color.FromRgb(0x5F, 0xE0, 0xA0)), Stroke = Frozen(Color.FromRgb(0x0D, 0x14, 0x1B)), StrokeThickness = 1.5, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
-    public event Action? DragFinished, DropsClicked, SettingsClicked, MinimapClicked, BreakdownClicked, TroopClicked, NewsClicked, AbyssClicked;
+    public event Action? DragFinished, DropsClicked, SettingsClicked, MinimapClicked, BreakdownClicked, TroopClicked, NewsClicked, AbyssClicked, CraftClicked;
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     public OverlayDock()
@@ -42,6 +42,10 @@ public sealed class OverlayDock : Window
         abyss = Icon("", "Abismo: tu clasificación, tus puntos y lo que llevas farmeado", () => AbyssClicked?.Invoke());
         abyss.Content = new Image { Source = OverlayWindow.Icon("/assets/game/Icon_Exploit_Medal_lv4_01.webp"), Width = 18, Height = 18, Opacity = .6 };
         stack.Children.Add(abyss);
+        // The crafting card: the game's orichalcum ingot, dim while the card is closed.
+        craft = Icon("", "Fabricación: el nivel y la EXP de tus oficios y lo que llevas fabricado", () => CraftClicked?.Invoke());
+        craft.Content = new Image { Source = OverlayWindow.Icon(CraftWindow.IngotIcon), Width = 18, Height = 18, Opacity = .6 };
+        stack.Children.Add(craft);
         // Novedades: the update available and the site's notices; a green dot while something is unread.
         news = Icon("", "Novedades: actualizaciones y noticias", () => NewsClicked?.Invoke());
         var newsGlyph = (UIElement)news.Content; var newsFace = new Grid(); news.Content = newsFace; newsFace.Children.Add(newsGlyph); newsFace.Children.Add(newsDot); newsDot.Margin = new Thickness(0, -3, -6, 0);
@@ -56,6 +60,7 @@ public sealed class OverlayDock : Window
     public void SetMinimapAccess(bool allowed) { minimap.ToolTip = allowed ? "Minimapa (Ctrl+Alt+N)" : "Minimapa"; minimap.Opacity = allowed ? 1 : .45; }
     public void SetDropsOn(bool on) => ((TextBlock)drops.Content).Foreground = on ? On : Glyph;
     public void SetAbyssOn(bool on) => ((Image)abyss.Content).Opacity = on ? 1 : .6;
+    public void SetCraftOn(bool on) => ((Image)craft.Content).Opacity = on ? 1 : .6;
     public void SetTroopOn(bool on) { ((TextBlock)troop.Content).Foreground = on ? On : Glyph; troop.ToolTip = on ? "Mostrando toda la tropa · clic para ver solo tu grupo" : "Mostrando solo tu grupo · clic para ver toda la tropa"; }
     static Brush Frozen(Color c) { var b = new SolidColorBrush(c); b.Freeze(); return b; }
     new static Button Icon(string glyph, string tip, Action click)

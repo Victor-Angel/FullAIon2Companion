@@ -465,7 +465,7 @@ public sealed partial class OverlayWindow
     void ThemeFamily(bool all = false)
     {
         var font = new FontFamily(look.Font);
-        foreach (Window w in new Window[] { this, dock, drops, abyssCard, player, minimap, centerAlert, bossWindow, toast, assistant, assistant.Card })
+        foreach (Window w in new Window[] { this, dock, drops, abyssCard, craftCard, player, minimap, centerAlert, bossWindow, toast, assistant, assistant.Card })
         {
             if (!all && !w.IsVisible && !(Preview && w == this)) continue;
             ThemeWindow(w, font);

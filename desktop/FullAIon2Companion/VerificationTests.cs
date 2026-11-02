@@ -112,7 +112,7 @@ public static class VerificationTests
             try
             {
                 net.Extra = ",\"announcements\":[{\"id\":\"a1\",\"title\":\"Mantenimiento\",\"body\":\"<b>hoy</b>\",\"level\":\"maintenance\",\"startsAt\":\"2020-01-01T00:00:00Z\",\"endsAt\":\"2099-01-01T00:00:00Z\"},{\"id\":\"a2\",\"title\":\"Viejo\",\"body\":\"x\",\"level\":\"info\",\"startsAt\":\"2020-01-01T00:00:00Z\",\"endsAt\":\"2020-02-01T00:00:00Z\"}],"
-                    + "\"releases\":{\"beta\":{\"id\":\"0123456789abcdef0123456789abcdef\",\"version\":\"0.2.0-beta.1\",\"channel\":\"beta\",\"notes\":\"n\",\"sha256\":\"" + new string('a', 64) + "\",\"bytes\":10,\"createdAt\":\"2026-10-11T20:00:00Z\",\"url\":\"/api/operations.php?action=download&id=0123456789abcdef0123456789abcdef\"}}";
+                    + "\"releases\":{\"beta\":{\"id\":\"0123456789abcdef0123456789abcdef\",\"version\":\"0.2.0-beta.1\",\"channel\":\"beta\",\"notes\":\"n\",\"notesI18n\":{\"en\":\"n-en\",\"fr\":\"n-fr\",\"de\":5},\"sha256\":\"" + new string('a', 64) + "\",\"bytes\":10,\"createdAt\":\"2026-10-11T20:00:00Z\",\"url\":\"/api/operations.php?action=download&id=0123456789abcdef0123456789abcdef\"}}";
                 net.Plan = "\"expiresAt\":\"2020-01-01T00:00:00Z\",";
                 var pull = await client.Pull();
                 var active = pull.Announcements!.Where(a => a.ActiveAt(DateTime.UtcNow)).ToList();
@@ -121,6 +121,7 @@ public static class VerificationTests
                 net.Plan = "";
                 await client.Pull();
                 return Expect(active.Count == 1 && active[0].Body == "<b>hoy</b>", "avisos vigentes: " + active.Count) ?? Expect(pull.Releases!.ContainsKey("beta") && !pull.Releases.ContainsKey("stable"), "canales")
+                    ?? Expect(pull.Releases["beta"].NotesIn("fr") == "n-fr" && pull.Releases["beta"].NotesIn("de") == "n-en" && pull.Releases["beta"].NotesIn("es") == "n", "notas por idioma")
                     ?? Expect(expiredPlan && !license.Has("companionMinimap") && !license.Has("companionPvp"), "el pull habilitó Plus sin licencia por personaje");
             }
             finally { Directory.Delete(dir, true); }

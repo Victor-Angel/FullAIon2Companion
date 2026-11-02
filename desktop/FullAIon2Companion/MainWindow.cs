@@ -138,9 +138,11 @@ public sealed class MainWindow : Window
         overlay.AbyssRank=()=>engine.Rankings.Abyss(marketServer,rankCharacter);
         // The Abyss card: the points now and what the farming there has given, per character (abyss-sessions.json).
         engine.Abyss.Open(Path.Combine(Program.DataDirectory,"abyss-sessions.json"));overlay.AbyssNow=engine.Abyss.Now;overlay.AbyssReset=engine.Abyss.Reset;
+        // The crafting card: the professions' level and EXP and the session crafting, per character (craft-sessions.json).
+        engine.Craft.Open(Path.Combine(Program.DataDirectory,"craft-sessions.json"));overlay.CraftNow=engine.Craft.Now;overlay.CraftReset=engine.Craft.Reset;
         // The panel's X minimizes to the taskbar; closing it from the taskbar (already minimized) quits, like "Salir".
         Closing+=(_,e)=>{if(exiting){SessionLog.Write("panel closing: quitting (Salir or an update)");return;}if(WindowState==WindowState.Minimized){SessionLog.Write("panel closing: quitting (closed while minimized)");exiting=true;return;}e.Cancel=true;TogglePanel();};
-        Closed+=(_,_)=>{tick.Stop();assistTick.Stop();if(engine.EndedFight(force:true) is { } last)history.Save(last);license.Dispose();engine.Collection.Flush();engine.Observed.Flush();engine.Abyss.Flush();engine.Dispose();overlay.Close();var h=new WindowInteropHelper(this).Handle;for(int id=1;id<=Hotkeys.Actions.Length;id++)UnregisterHotKey(h,id);view.Dispose();
+        Closed+=(_,_)=>{tick.Stop();assistTick.Stop();if(engine.EndedFight(force:true) is { } last)history.Save(last);license.Dispose();engine.Collection.Flush();engine.Observed.Flush();engine.Abyss.Flush();engine.Craft.Flush();engine.Dispose();overlay.Close();var h=new WindowInteropHelper(this).Handle;for(int id=1;id<=Hotkeys.Actions.Length;id++)UnregisterHotKey(h,id);view.Dispose();
             // Hidden helper windows (fight details, news, boss panel) would keep the app alive: quit for real.
             Application.Current.Shutdown();};
         engine.Combat+=hit=>companion.Add(new{type="combat",at=CompanionClient.Utc(hit.Timestamp),eventId=Guid.NewGuid().ToString("N"),sourceId=hit.SourceObjectId.ToString(),targetId=hit.TargetObjectId.ToString(),skillId=hit.SkillId,damage=hit.IsHeal?0:hit.Amount,healing=hit.IsHeal?hit.Amount:0,critical=hit.IsCritical});
@@ -344,10 +346,10 @@ public sealed class MainWindow : Window
         var items=new List<NewsItem>();
         var r=LatestRelease();
         if(r is not null&&AppVersion.IsNewer(r.Version,AppVersion.Current))
-            items.Add(new("update:"+r.Version,"update",$"Versión {r.Version}",string.IsNullOrWhiteSpace(r.Notes)?"Sin notas de versión.":r.Notes,"info",
+            items.Add(new("update:"+r.Version,"update",$"Versión {r.Version}",string.IsNullOrWhiteSpace(r.Notes)?"Sin notas de versión.":r.NotesIn(L.Language),"info",
                 $"Tienes la {AppVersion.Current} · {r.Bytes/1048576.0:0.0} MB"+(r.CreatedUtc is DateTime c?$" · publicada el {c.ToLocalTime():dd/MM/yyyy}":"")));
         foreach(var a in ActiveAnnouncements())items.Add(new("notice:"+a.Id,"notice",a.Title,a.Body,a.Level));
-        if(items.Count==0&&r is not null&&r.Version==AppVersion.Current&&!string.IsNullOrWhiteSpace(r.Notes))items.Add(new("current:"+r.Version,"current",$"Versión {r.Version}",r.Notes,"info","La que tienes instalada"));
+        if(items.Count==0&&r is not null&&r.Version==AppVersion.Current&&!string.IsNullOrWhiteSpace(r.Notes))items.Add(new("current:"+r.Version,"current",$"Versión {r.Version}",r.NotesIn(L.Language),"info","La que tienes instalada"));
         return items;
     }
     void OpenNews()
@@ -393,7 +395,7 @@ public sealed class MainWindow : Window
     {
         var r=LatestRelease();
         bool newer=r is not null&&AppVersion.IsNewer(r.Version,AppVersion.Current);
-        return new{current=AppVersion.Current,channel=settings.UpdateChannel,paired=companion.Paired,latest=r is null?null:new{r.Version,r.Notes,r.Bytes,created=r.CreatedUtc},newer,
+        return new{current=AppVersion.Current,channel=settings.UpdateChannel,paired=companion.Paired,latest=r is null?null:new{r.Version,Notes=r.NotesIn(L.Language),r.Bytes,created=r.CreatedUtc},newer,
             status=updateStatus.Length>0?updateStatus:!companion.Paired?"Vincula el dispositivo para consultar las versiones publicadas":r is null?"No hay versiones publicadas en este canal":newer?$"Hay una versión nueva: {r.Version}":"Tienes la última versión de este canal",
             downloaded=updateFile is not null&&File.Exists(updateFile)};
     }
@@ -457,7 +459,7 @@ public sealed class MainWindow : Window
             // Where the player is on the atlas: the Atlas of this panel (data.atlas) and the website's, every second.
             var here=atlas.Locate(snapshot);
             // The session's loot at Market prices, for the overlay (only items with a price count; the others are told apart).
-            marketServer=snapshot.LocalServerId??settings.LastServerId;rankCharacter=snapshot.Character;engine.Abyss.SetCharacter(marketServer,rankCharacter);
+            marketServer=snapshot.LocalServerId??settings.LastServerId;rankCharacter=snapshot.Character;engine.Abyss.SetCharacter(marketServer,rankCharacter);engine.Craft.SetCharacter(marketServer,rankCharacter);
             // The Market of the character's server (loot HUD) and of the one the Mercado tab shows, asked again every 30 min.
             market.Want(marketServer);if(MarketViewServer!=marketServer)market.Want(MarketViewServer);
             {var gains=engine.Inventory.Loot;sessionMarket=(gains.Sum(g=>(market.Unit(marketServer,g.Item)??0)*g.Quantity),gains.Where(g=>market.Unit(marketServer,g.Item) is null&&!InventoryWatch.Bound(g.Item)).Select(g=>g.Item).Distinct().Count());}

@@ -11,7 +11,15 @@ function opsNotices(PDO $db,string $audience):array {
  $q=$db->prepare("SELECT id,title,body,level,starts_at,ends_at FROM companion_notices WHERE published=1 AND audience IN (?, 'both') AND starts_at<=UTC_TIMESTAMP() AND ends_at>UTC_TIMESTAMP() ORDER BY level='maintenance' DESC,starts_at DESC LIMIT 5");$q->execute([$audience]);$r=$q->fetchAll(PDO::FETCH_ASSOC);foreach($r as &$x){$x['startsAt']=opsIso($x['starts_at']);$x['endsAt']=opsIso($x['ends_at']);unset($x['starts_at'],$x['ends_at']);}return $r;
 }
 function opsReleases(PDO $db):array {
- $r=[];foreach(['stable','beta'] as $channel){$q=$db->prepare("SELECT id,version,channel,notes,sha256,bytes,created_at FROM companion_releases WHERE published=1 AND channel=? ORDER BY created_at DESC LIMIT 1");$q->execute([$channel]);if($x=$q->fetch(PDO::FETCH_ASSOC)){$x['url']='/api/operations.php?action=download&id='.$x['id'];$x['createdAt']=opsIso($x['created_at']);$x['bytes']=(int)$x['bytes'];unset($x['created_at']);$r[$channel]=$x;}}return $r;
+ $r=[];foreach(['stable','beta'] as $channel){$q=$db->prepare("SELECT id,version,channel,notes,sha256,bytes,created_at FROM companion_releases WHERE published=1 AND channel=? ORDER BY created_at DESC LIMIT 1");$q->execute([$channel]);if($x=$q->fetch(PDO::FETCH_ASSOC)){$x['url']='/api/operations.php?action=download&id='.$x['id'];$x['createdAt']=opsIso($x['created_at']);$x['bytes']=(int)$x['bytes'];unset($x['created_at']);$i18n=opsReleaseNotes($x['id']);if($i18n)$x['notesI18n']=$i18n;$r[$channel]=$x;}}return $r;
+}
+// The notes in other languages: <id>.notes.json beside the installer ({"en":"1.0.26: ...","pt":...}), uploaded with it from
+// 2026-11-02. "notes" stays the Spanish text, so older apps and pages are unchanged.
+function opsReleaseNotes(string $id):array {
+ $path=($GLOBALS['private']??(getenv('AION_PRIVATE_DIR')?:dirname(__DIR__,2).'/aion2-private')).'/releases/'.$id.'.notes.json';
+ if(!preg_match('/^[a-f0-9]{32}$/D',$id)||!is_file($path)||filesize($path)>200000)return [];
+ $d=json_decode((string)file_get_contents($path),true);if(!is_array($d))return [];
+ $r=[];foreach(['es','en','pt','fr','de','it','ru'] as $lang)if(is_string($d[$lang]??null)&&$d[$lang]!==''&&mb_strlen($d[$lang])<=30000)$r[$lang]=$d[$lang];return $r;
 }
 function opsStaff(PDO $db,array $actor):string {$q=$db->prepare('SELECT staff_role FROM companion_staff WHERE user_id=?');$q->execute([$actor['id']]);return $q->fetchColumn()?:'admin';}
 function opsPermissions(string $role):array {

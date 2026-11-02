@@ -36,8 +36,17 @@ public sealed record Announcement(string Id, string Title, string Body, string L
 {
     public bool ActiveAt(DateTime utc) => (StartsUtc is null || StartsUtc <= utc) && (EndsUtc is null || EndsUtc > utc);
 }
-/// <summary>A published build of one channel. Url is relative to the site; the file is checked against Bytes and Sha256.</summary>
-public sealed record Release(string Id, string Version, string Channel, string Notes, string Sha256, long Bytes, DateTime? CreatedUtc, string Url);
+/// <summary>A published build of one channel. Url is relative to the site; the file is checked against Bytes and Sha256.
+/// Notes is the Spanish text the server always sends; NotesI18n the same notes in other languages (from 1.0.26).</summary>
+public sealed record Release(string Id, string Version, string Channel, string Notes, string Sha256, long Bytes, DateTime? CreatedUtc, string Url,
+    IReadOnlyDictionary<string, string>? NotesI18n = null)
+{
+    /// <summary>The notes in that language; English for a language they are not written in yet, and the Spanish ones before
+    /// the server sent any other.</summary>
+    public string NotesIn(string language) =>
+        NotesI18n?.GetValueOrDefault(language) is { Length: > 0 } own ? own
+        : language != "es" && NotesI18n?.GetValueOrDefault("en") is { Length: > 0 } english ? english : Notes;
+}
 /// <summary>What the voluntary diagnostics report (contract: docs/claude-companion-operations-prompt.md). No packets, tokens, IPs or paths.</summary>
 public sealed record Diagnostics(
     [property: JsonPropertyName("version")] string Version,
@@ -225,7 +234,9 @@ public sealed class CompanionClient : ILicenseApi, ITitleApi
             foreach (var ch in rl.EnumerateObject())
                 if (ch.Value.ValueKind == JsonValueKind.Object && Str(ch.Value, "version") is { Length: > 0 } version && Str(ch.Value, "url") is { } url)
                     releases[ch.Name] = new(Str(ch.Value, "id") ?? "", version, Str(ch.Value, "channel") ?? ch.Name, Str(ch.Value, "notes") ?? "", (Str(ch.Value, "sha256") ?? "").ToLowerInvariant(),
-                        ch.Value.TryGetProperty("bytes", out var b) && b.TryGetInt64(out long bytes) ? bytes : 0, Time(ch.Value, "createdAt"), url);
+                        ch.Value.TryGetProperty("bytes", out var b) && b.TryGetInt64(out long bytes) ? bytes : 0, Time(ch.Value, "createdAt"), url,
+                        ch.Value.TryGetProperty("notesI18n", out var ni) && ni.ValueKind == JsonValueKind.Object
+                            ? ni.EnumerateObject().Where(n => n.Value.ValueKind == JsonValueKind.String).ToDictionary(n => n.Name, n => n.Value.GetString()!) : null);
         return new(DateTime.UtcNow, body.TryGetProperty("lastSequence", out var ls) && ls.TryGetInt32(out int last) ? last : 0,
             body.TryGetProperty("linkedCharacters", out var lc) && lc.ValueKind == JsonValueKind.Array ? lc.EnumerateArray().Select(ParseRef).ToList() : [],
             body.TryGetProperty("verificationReady", out var vr) && vr.ValueKind == JsonValueKind.True,

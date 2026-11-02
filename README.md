@@ -29,9 +29,9 @@ FullAIon2Companion reads the AION 2 traffic that already reaches your PC and sho
 
 | | |
 |---|---|
-| **Latest version** | [**FullAIon2Companion 1.0.25**](https://github.com/l33tm3/FullAIon2Companion/releases/latest) (Windows 10/11, 64-bit, ~99 MB) |
-| **SHA-256** | `649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8` |
-| **VirusTotal** | [![VirusTotal 1.0.25](https://img.shields.io/badge/VirusTotal%201.0.25-0%2F68-brightgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8) — 0 of 68 engines: none flags it (DeepInstinct's machine-learning engine had flagged [1.0.24](https://www.virustotal.com/gui/file/295cac2e20af20e77e7fb72871a9049ace39c17b7896bc7160c1fbfbd062d7a6), [1.0.23](https://www.virustotal.com/gui/file/3698a6389d00a28ad603c505aba46c7c83005d586cc265c657911882a096a76b) and 1.0.20). Unsigned installers often trip such heuristics; the full source of this installer is in this repository. |
+| **Latest version** | [**FullAIon2Companion 1.0.26**](https://github.com/l33tm3/FullAIon2Companion/releases/latest) (Windows 10/11, 64-bit, ~99 MB) |
+| **SHA-256** | `6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f` |
+| **VirusTotal** | The 1.0.26 report is coming. [1.0.25](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8): 0 of 68 engines. Unsigned installers often trip machine-learning heuristics; the full source of this installer is in this repository. |
 | **Also on** | [governanceai.me](https://governanceai.me/?lang=en#home?download=1) |
 
 **Requirements**
@@ -134,6 +134,13 @@ The medal on the overlay's strip opens the Abyss card: your place in the Abyss r
 
 <br clear="right">
 
+### Your crafting, level by level
+<img src="docs/images/overlay-craft.webp" alt="Crafting card" width="380" align="right">
+
+The ingot on the overlay's strip opens the Crafting card: your five professions with their level the way the game writes it (Novice and Professional), your EXP against what the level needs, how much is left and how many crafts until the next level. Below, your crafting session: crafts and EXP per hour, the levels you gained and what you made. The game never sends the EXP a level needs; the card knows all 100 levels and checks them against every level up it sees. It moves and resizes like the Abyss card.
+
+<br clear="right">
+
 ### Your profile, the way the game shows it
 Your whole official profile in the app: gear by group with each piece's full tooltip (stats, manastones, godstone, appearance, source), skills and stigmas with their level and text, stats, skins, and every Daevanion board drawn with the game's own node art. Ariel included: the official site does not have it yet, so your open nodes come from the game when you open its Daevanion window.
 
@@ -218,7 +225,7 @@ dotnet build desktop/FullAIon2Companion -c Release -o desktop/build
 desktop/build/FullAIon2Companion.exe
 
 # Installer (self-contained, written to desktop/release/<version>)
-powershell -ExecutionPolicy Bypass -File scripts/build-companion.ps1 -Version 1.0.25 -Output desktop/release/1.0.25
+powershell -ExecutionPolicy Bypass -File scripts/build-companion.ps1 -Version 1.0.26 -Output desktop/release/1.0.26
 ```
 
 The app has offline self-tests, for example `FullAIon2Companion.exe --license-test out.json`, `--verify-test out.json`, `--overlay-styles <folder> [en]` (draws the overlay in all 36 styles) or `--skill-card-test <folder>`.
@@ -246,6 +253,7 @@ Some import scripts in `scripts/` read research sources that are not included he
 - Cartography of the Map of Atreia: [InteractiveMap.app](https://interactivemap.app/aion2/maps/es/altgard).
 - Creature portraits: [aion2.th.gl](https://aion2.th.gl), used with its authors' permission.
 - Market prices: [aion2.exchange](https://aion2.exchange), used with its authors' permission.
+- The EXP of each crafting level: [questlog.gg](https://questlog.gg/aion-2/en/table/mastery-levels/crafting)'s crafting mastery table, which matches every level up seen in the game.
 - [Leaflet](https://leafletjs.com), [Lucide](https://lucide.dev), [SharpPcap / PacketDotNet](https://github.com/dotpcap), [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/).
 
 See [`desktop/THIRD-PARTY-NOTICES.txt`](desktop/THIRD-PARTY-NOTICES.txt) for the full notices.

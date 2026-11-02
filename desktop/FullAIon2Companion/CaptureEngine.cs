@@ -92,6 +92,9 @@ public sealed class CaptureEngine : IDisposable
     (int, DateTime) lastRecord;
     /// <summary>The Abyss ranking points and Abyss Points (0x73E2, 0xA9FF) and the session farming there.</summary>
     public AbyssWatch Abyss => abyss;
+    readonly CraftWatch craft = new();
+    /// <summary>The crafting professions (level and EXP, 0x7C8D, 0x7D8D and the character record) and the session crafting.</summary>
+    public CraftWatch Craft => craft;
     /// <summary>Your open Daevanion nodes as the game last sent them (0x26E2).</summary>
     public DaevanionWatch Daevanion => daevanion;
     public InventoryWatch Inventory => inventory;
@@ -282,6 +285,8 @@ public sealed class CaptureEngine : IDisposable
             {
                 bool fresh = (c.CombatId, c.ReceivedAt) != lastRecord; lastRecord = (c.CombatId, c.ReceivedAt);
                 abyss.SetCharacter(c.ServerId > 0 ? c.ServerId : entities.ServerIdOf(c.CombatId), c.Name, record: fresh);
+                // The record's professions (read by the crafting watch before this event) are this character's.
+                craft.SetCharacter(c.ServerId > 0 ? c.ServerId : entities.ServerIdOf(c.CombatId), c.Name, record: fresh);
             } };
     }
     public void Start(string? recordPath = null)
@@ -439,6 +444,7 @@ public sealed class CaptureEngine : IDisposable
                     board.Add(frame.Span, segment.Timestamp);
                     daevanion.Add(frame.Span, segment.Timestamp);
                     abyss.Add(frame.Span, segment.Timestamp);
+                    craft.Add(frame.Span, segment.Timestamp);
                     int loadsBefore = ownPos.Loads;
                     ownPos.Add(frame.Span);
                     // A map load: the monsters of the previous map must not vote for (or place the player on) the new one.

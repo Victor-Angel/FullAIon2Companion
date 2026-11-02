@@ -66,3 +66,10 @@ from aion2.exchange, which records them every hour. They are used with its
 authors' permission and credited in the Mercado tab ("Datos: aion2.exchange").
 The app only reads them (one request per server every 30 minutes at most, plus
 its server list once a day) and sends nothing about the player.
+
+questlog.gg crafting mastery table (the crafting card)
+https://questlog.gg/aion-2/en/table/mastery-levels/crafting
+
+The EXP each of the 100 crafting levels needs comes from questlog.gg's crafting
+mastery table. The game does not send it; every level up the app has seen in the
+game (and the game's own crafting window) matches it.

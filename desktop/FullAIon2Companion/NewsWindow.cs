@@ -94,7 +94,7 @@ public sealed class NewsWindow : Window
     {
         var block = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
         if (version is not null) block.Children.Add(new TextBlock { Text = $"Versión {version}", FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = accent, Margin = new Thickness(0, 0, 0, 4) });
-        foreach (var point in System.Text.RegularExpressions.Regex.Split(text, @"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ«¿¡])").Where(x => x.Length > 0))
+        foreach (var point in System.Text.RegularExpressions.Regex.Split(text, @"(?<=[.!?])\s+(?=[\p{Lu}«¿¡])").Where(x => x.Length > 0))
         {
             var row = new DockPanel { Margin = new Thickness(0, 0, 0, 5) };
             var dot = new TextBlock { Text = "•", Foreground = accent, FontSize = 12.5, Margin = new Thickness(0, 0, 7, 0) };

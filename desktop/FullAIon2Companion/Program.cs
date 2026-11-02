@@ -1214,6 +1214,110 @@ public static class Program
                 }
                 finally { Directory.Delete(testDirectory, true); testDirectory = null; }
             }
+            if(args.FirstOrDefault() == "--craft-test")
+            {
+                // Test: the crafting card. args[1] a frame log («date time opcode hex» lines, as rare-frames.log; args[4] and args[5]
+                // the first and last time, «2026-11-01 22:40»); args[2] the picture (and a .json beside it); args[3] the language.
+                // The session must add up the EXP frames (0x7C8D) and level ups (0x7D8D) on their own, every level's need it learns
+                // must match the table built in, and the levels must be the record's (0x3336) and level ups'.
+                if (args.Length > 3 && args[3] is "en" or "pt" or "fr") L.Language = args[3];
+                testDirectory = Path.Combine(Path.GetTempPath(), "fa2c-craft-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(testDirectory);
+                try
+                {
+                    var watch = new CraftWatch(); watch.Open(Path.Combine(DataDirectory, "craft-sessions.json"));
+                    DateTime from = args.Length > 4 ? DateTime.Parse(args[4]) : DateTime.MinValue, to = args.Length > 5 ? DateTime.Parse(args[5]) : DateTime.MaxValue;
+                    // The name in the record: the marker 37 or 3F, then the nickname (its length and UTF-8).
+                    static string? NameIn(byte[] f)
+                    {
+                        for (int k = 2; k + 2 < Math.Min(f.Length, 24); k++)
+                        {
+                            if (f[k] is not (0x37 or 0x3F) || f[k + 1] is < 2 or > 24 || k + 2 + f[k + 1] > f.Length) continue;
+                            try { var n = new System.Text.UTF8Encoding(false, true).GetString(f, k + 2, f[k + 1]); if (n.All(char.IsLetterOrDigit)) return n; } catch { }
+                        }
+                        return null;
+                    }
+                    long gained = 0; int crafts = 0, ups = 0; var lastLevel = new Dictionary<int, int>(); string? name = null; var recordLevels = new Dictionary<int, (int, long)>();
+                    foreach (var line in File.ReadLines(args[1]))
+                    {
+                        var parts = line.Split(' ', 4);
+                        if (parts.Length < 4 || parts[2] is not ("0x3336" or "0x6F8D" or "0x7C8D" or "0x7D8D") || !DateTime.TryParse(parts[0] + " " + parts[1], out var when) || when < from || when > to) continue;
+                        byte[] frame; try { frame = Convert.FromHexString(parts[3]); } catch { continue; }
+                        watch.Add(frame, when);
+                        // The character record, as the engine passes it on live: after the watch read it.
+                        if (parts[2] == "0x3336") { name = NameIn(frame) ?? name; if (CraftWatch.ReadRecord(frame) is { } r) recordLevels = r; watch.SetCharacter(2401, name ?? "Darkni", record: true); continue; }
+                        if (parts[2] == "0x7C8D" && frame.Length >= 15) { crafts++; gained += System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(frame.AsSpan(11)); }
+                        if (parts[2] == "0x7D8D" && frame.Length >= 9) { ups++; lastLevel[frame[2]] = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(frame.AsSpan(3)); }
+                    }
+                    watch.Flush();
+                    var view = watch.Now(); var s = view.Session;
+                    // What the watch learned from these frames (its file), against the built-in table.
+                    var learned = new List<object>(); bool agree = true;
+                    var file = JsonDocument.Parse(File.ReadAllText(Path.Combine(DataDirectory, "craft-sessions.json"))).RootElement;
+                    int learnedCount = 0;
+                    foreach (var p in file.GetProperty("Needed").EnumerateObject())
+                        foreach (var l in p.Value.EnumerateObject())
+                        {
+                            learnedCount++;
+                            int level = int.Parse(l.Name); long n = l.Value.GetInt64();
+                            bool same = level < CraftWatch.Table.Length && CraftWatch.Table[level] == n;
+                            agree &= same;
+                            learned.Add(new { profession = CraftWatch.Names[int.Parse(p.Name)], level, needed = n, table = level < CraftWatch.Table.Length ? CraftWatch.Table[level] : (long?)null, same });
+                        }
+                    var checks = new List<object>
+                    {
+                        new { check = "una sesión de fabricación", ok = s is not null && s.Professions.Count > 0 },
+                        new { check = "fabricaciones = tramas 0x7C8D", ok = s?.Professions.Values.Sum(p => p.Crafts) == crafts, session = s?.Professions.Values.Sum(p => p.Crafts), frames = crafts },
+                        new { check = "EXP ganada = suma de las tramas 0x7C8D", ok = s?.Professions.Values.Sum(p => p.Exp) == gained, session = s?.Professions.Values.Sum(p => p.Exp), frames = gained },
+                        new { check = "niveles subidos = tramas 0x7D8D", ok = s?.Professions.Values.Sum(p => p.LevelUps) == ups, session = s?.Professions.Values.Sum(p => p.LevelUps), frames = ups },
+                        new { check = "el nivel de cada oficio es el de su última subida", ok = lastLevel.All(l => view.Professions.FirstOrDefault(x => x.Profession == l.Key)?.Level == l.Value), levels = lastLevel },
+                        new { check = "la EXP que pide cada nivel, aprendida de las subidas, coincide con la tabla", ok = learnedCount > 0 && agree, learned = learnedCount },
+                        new { check = "la tabla: 100 niveles, 0 en los topes 50 y 100", ok = CraftWatch.Table.Length == 101 && CraftWatch.Table[50] == 0 && CraftWatch.Table[100] == 0 && CraftWatch.Table[44] == 413 && CraftWatch.Table[51] == 602 },
+                        new { check = "los grados como el juego: 44 Principiante nv. 44, 51 Especialista nv. 1", ok = CraftWatch.Grade(44) == ("Principiante", 44) && CraftWatch.Grade(51) == ("Especialista", 1) && CraftWatch.Grade(100) == ("Especialista", 50) },
+                        new { check = "la ficha del personaje trae los 5 oficios", ok = recordLevels.Count == 5, record = recordLevels.ToDictionary(r => CraftWatch.Names[r.Key], r => r.Value.Item1) },
+                    };
+                    // A character switch: each character keeps its professions and its session, and a level is only learned from
+                    // an EXP the server sent in this run.
+                    {
+                        var sw = new CraftWatch(); sw.Open(Path.Combine(DataDirectory, "craft-switch.json"));
+                        var t = new DateTime(2026, 11, 1, 22, 0, 0);
+                        byte[] Record(int herreria, long exp)
+                        {
+                            var b = new byte[120]; b[0] = 0x33; b[1] = 0x36; b[40] = 5;
+                            for (int p = 1; p <= 5; p++) { int o = 41 + (p - 1) * 13; b[o] = (byte)p; System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(o + 1), (ushort)(p == 1 ? herreria : 1)); System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(o + 3), (uint)(p == 1 ? exp : 0)); }
+                            return b;
+                        }
+                        byte[] Exp(long exp, long gain) { var b = new byte[19]; b[0] = 0x7C; b[1] = 0x8D; b[2] = 1; System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(3), (uint)exp); System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(11), (uint)gain); return b; }
+                        byte[] Up(int level, long exp) { var b = new byte[15]; b[0] = 0x7D; b[1] = 0x8D; b[2] = 1; System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(3), (ushort)level); System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(b.AsSpan(5), (uint)exp); return b; }
+                        void Feed(byte[] f, double seconds) => sw.Add(f, t.AddSeconds(seconds));
+                        Feed(Record(45, 400), 0); sw.SetCharacter(2401, "Uno", record: true);
+                        Feed(Exp(420, 20), 10); Feed(Exp(5, 20), 20); Feed(Up(46, 5), 20.01);   // 420 + 20 − 5: level 45 needs 435 (a patch)
+                        bool learnedOne = sw.NeededFor(1, 45) == 435;
+                        Feed(Record(12, 7), 100); sw.SetCharacter(2401, "Dos", record: true);
+                        var dos = sw.Now();
+                        Feed(Exp(27, 20), 110);
+                        Feed(Record(46, 5), 200); sw.SetCharacter(2401, "Uno", record: true);
+                        var uno = sw.Now();
+                        checks.Add(new { check = "cambio de personaje: cada uno conserva sus oficios y su sesión; un nivel se aprende de una subida vista entera",
+                            ok = learnedOne && dos.Professions[0].Level == 12 && dos.Session is null && uno.Professions[0].Level == 46 && uno.Professions[0].Exp == 5 && uno.Session?.Professions[1].Crafts == 2 && uno.Session.Professions[1].LevelUps == 1 && uno.Professions[0].Needed == 467,
+                            learnedOne, dosLevel = dos.Professions[0].Level, unoLevel = uno.Professions[0].Level, unoCrafts = uno.Session?.Professions.GetValueOrDefault(1)?.Crafts });
+                    }
+                    var card = new CraftWindow(.92);
+                    card.Render(view);
+                    var host = (System.Windows.FrameworkElement)card.Content; card.Content = null;
+                    host.Measure(new System.Windows.Size(300, double.PositiveInfinity)); host.Arrange(new System.Windows.Rect(host.DesiredSize)); host.UpdateLayout();
+                    var bmp = new System.Windows.Media.Imaging.RenderTargetBitmap((int)Math.Ceiling(host.ActualWidth * 2), (int)Math.Ceiling(host.ActualHeight * 2), 192, 192, System.Windows.Media.PixelFormats.Pbgra32);
+                    bmp.Render(host);
+                    var png = new System.Windows.Media.Imaging.PngBitmapEncoder(); png.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bmp));
+                    using (var f = File.Create(Path.GetFullPath(args[2]))) png.Save(f);
+                    bool ok = checks.All(c => (bool)c.GetType().GetProperty("ok")!.GetValue(c)!);
+                    File.WriteAllText(Path.ChangeExtension(Path.GetFullPath(args[2]), ".json"), JsonSerializer.Serialize(new { ok, character = name, checks, learned, view },
+                        new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+                    Console.WriteLine(ok ? "ok" : "FALLA");
+                    return ok ? 0 : 1;
+                }
+                finally { Directory.Delete(testDirectory, true); testDirectory = null; }
+            }
             if(args.FirstOrDefault() == "--rank-badge-test")
             {
                 // Test: the overlay header with the Abyss medal (the 0x578D frames of a rare-frames.log, args[2], the data folder's by

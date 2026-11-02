@@ -32,6 +32,12 @@ public sealed class AppSettings
     public double? AbyssLeft { get; set; }
     public double? AbyssTop { get; set; }
     public double? AbyssScale { get; set; }
+    /// <summary>The crafting card beside the overlay (the strip's ingot): professions, EXP and the session crafting.</summary>
+    public bool OverlayCraft { get; set; }
+    /// <summary>Where the crafting card was dragged (null: beside the overlay) and its own size (null: the overlay's).</summary>
+    public double? CraftLeft { get; set; }
+    public double? CraftTop { get; set; }
+    public double? CraftScale { get; set; }
     // Configuración > Combate
     public int CombatIdleSeconds { get; set; } = 15;
     public bool PartyOnly { get; set; } = true;

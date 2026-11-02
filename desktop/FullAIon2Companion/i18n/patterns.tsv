@@ -1,3 +1,7 @@
+^nv\. (\d+|\?)$	Lv. $1	Nv. $1	Niv. $1
+^nv\. (\d+) → (\d+)$	Lv. $1 → $2	Nv. $1 → $2	Niv. $1 → $2
+^Faltan ([\d.,\s  ]+) de EXP para subir de nivel · ≈ ([\d.,\s  ]+) fabricaciones$	$1 EXP to the next level · ≈ $2 crafts	Faltam $1 de EXP para subir de nível · ≈ $2 fabricações	Il manque $1 d'EXP pour monter de niveau · ≈ $2 fabrications
+^Faltan ([\d.,\s  ]+) de EXP para subir de nivel$	$1 EXP to the next level	Faltam $1 de EXP para subir de nível	Il manque $1 d'EXP pour monter de niveau
 ^Objeto (\d+)$	Item $1	Objeto $1	Objet $1
 ^Puesto visto (\d+:\d\d) · se renueva (\d+:\d\d)$	Place seen $1 · renews $2	Posição vista $1 · renova $2	Place vue $1 · renouvelée à $2
 ^Puesto de las (\d+:\d\d): ábrela de nuevo en el juego para renovarlo$	Place from $1: open it again in the game to renew it	Posição das $1: abra de novo no jogo para renová-la	Place de $1 : rouvre-le dans le jeu pour la renouveler

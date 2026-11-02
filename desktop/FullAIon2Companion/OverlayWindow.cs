@@ -54,6 +54,11 @@ public sealed partial class OverlayWindow : Window
     public Func<AbyssWatch.View>? AbyssNow { get; set; }
     /// <summary>«Reiniciar» on the Abyss card, set by the main window.</summary>
     public Action? AbyssReset { get; set; }
+    readonly CraftWindow craftCard;
+    /// <summary>The crafting professions and the session crafting (CaptureEngine.Craft), set by the main window.</summary>
+    public Func<CraftWatch.View>? CraftNow { get; set; }
+    /// <summary>«Reiniciar» on the crafting card, set by the main window.</summary>
+    public Action? CraftReset { get; set; }
     readonly CenterAlert centerAlert = new();
     readonly PlayerWindow player = new();
     readonly MinimapWindow minimap;
@@ -518,6 +523,10 @@ public sealed partial class OverlayWindow : Window
         abyssCard.Placed+=at=>{settings.AbyssLeft=at is Point p?Math.Round(p.X):null;settings.AbyssTop=at is Point q?Math.Round(q.Y):null;settings.Save();PlaceAbyss();};
         abyssCard.Resized+=k=>{settings.AbyssScale=Math.Round(k,2);settings.Save();};
         dock.SetAbyssOn(settings.OverlayAbyss);dock.AbyssClicked+=ToggleAbyss;
+        craftCard=new(settings.OverlayOpacity);craftCard.CloseRequested+=ToggleCraft;craftCard.ResetRequested=()=>CraftReset?.Invoke();
+        craftCard.Placed+=at=>{settings.CraftLeft=at is Point p?Math.Round(p.X):null;settings.CraftTop=at is Point q?Math.Round(q.Y):null;settings.Save();PlaceCraft();};
+        craftCard.Resized+=k=>{settings.CraftScale=Math.Round(k,2);settings.Save();};
+        dock.SetCraftOn(settings.OverlayCraft);dock.CraftClicked+=ToggleCraft;
         dock.SetDropsOn(settings.OverlayDrops);
         dock.DropsClicked+=ToggleDrops;
         dock.SettingsClicked+=()=>SettingsRequested?.Invoke();
@@ -532,7 +541,7 @@ public sealed partial class OverlayWindow : Window
         LocationChanged+=(_,_)=>Arrange(fromDock:false);
         dock.LocationChanged+=(_,_)=>Arrange(fromDock:true);
         minimap=new(settings);minimap.Closed_+=ToggleMinimap;dock.MinimapClicked+=ToggleMinimap;dock.SetMinimapOn(settings.MinimapVisible);
-        Closed+=(_,_)=>{dock.Close();drops.Close();abyssCard.Close();player.Close();minimap.Close();centerAlert.Close();bossWindow.Close();toast.Close();assistant.Close();};
+        Closed+=(_,_)=>{dock.Close();drops.Close();abyssCard.Close();craftCard.Close();player.Close();minimap.Close();centerAlert.Close();bossWindow.Close();toast.Close();assistant.Close();};
         centerAlert.Shown+=()=>{centerAlert.Topmost=!settings.OverlayAttachToGame;Restack(GetForegroundWindow());};
         HookForeground();
         Closed+=(_,_)=>{if(foregroundHook!=IntPtr.Zero)UnhookWinEvent(foregroundHook);};
@@ -548,7 +557,7 @@ public sealed partial class OverlayWindow : Window
         // A second colour makes the background a vertical gradient (Gamer Girl, Synthwave, Steampunk...).
         root.Background=look.Back2 is {} second?new LinearGradientBrush(Color.FromArgb(a,back.R,back.G,back.B),Color.FromArgb(a,C(second).R,C(second).G,C(second).B),90):new SolidColorBrush(Color.FromArgb(a,back.R,back.G,back.B));
         contentStack.LayoutTransform=new ScaleTransform(k,k);Width=LayoutWidth*k;
-        dock.ApplyScale(k);drops.ApplyAppearance(alpha,k);abyssCard.ApplyAppearance(alpha,settings.AbyssScale??k);player.ApplyAppearance(alpha,k);
+        dock.ApplyScale(k);drops.ApplyAppearance(alpha,k);abyssCard.ApplyAppearance(alpha,settings.AbyssScale??k);craftCard.ApplyAppearance(alpha,settings.CraftScale??k);player.ApplyAppearance(alpha,k);
         Arrange(fromDock:false);
     }
     // "Solo sobre el juego". Two things Windows does not allow from this process: making the game the owner window
@@ -557,7 +566,7 @@ public sealed partial class OverlayWindow : Window
     // when another app comes forward, the overlay is slotted right below that app - no longer topmost, so the app
     // covers it, yet still above the game and everything else.
     const uint NoMoveSizeActivate = 0x0001 | 0x0002 | 0x0010;
-    Window[] Family => [this, dock, drops, abyssCard, player, minimap, centerAlert, bossWindow, toast, assistant, assistant.Grip];
+    Window[] Family => [this, dock, drops, abyssCard, craftCard, player, minimap, centerAlert, bossWindow, toast, assistant, assistant.Grip];
     readonly AssistantWindow assistant;
     PlayerCard? ownCard;
     /// <summary>The combat assistant bar: buffs and cooldowns, shown while the overlay is.</summary>
@@ -625,7 +634,7 @@ public sealed partial class OverlayWindow : Window
         if(arranging)return;arranging=true;
         if(fromDock){Left=dock.Left-Width-4;Top=dock.Top;}else{dock.Left=Left+Width+4;dock.Top=Top;}
         drops.Left=player.Left=dock.Left+dock.Width+4;drops.Top=player.Top=Top;
-        PlaceAbyss();
+        PlaceAbyss();PlaceCraft();
         arranging=false;
     }
     // The Abyss card stays where it was dragged (while that is on a screen); else it goes under the loot card (or the player
@@ -641,6 +650,19 @@ public sealed partial class OverlayWindow : Window
         abyssCard.Top=above is null?Top:above.Top+above.ActualHeight+6;
     }
     public void ToggleAbyss(){settings.OverlayAbyss=!settings.OverlayAbyss;settings.Save();dock.SetAbyssOn(settings.OverlayAbyss);}
+    // The crafting card, the same way: where it was dragged, else under the cards beside the overlay (the loot or player card,
+    // then the Abyss card while that one is beside the overlay too).
+    void PlaceCraft()
+    {
+        if(!craftCard.IsVisible||craftCard.Dragging)return;
+        if(settings.CraftLeft is double x&&settings.CraftTop is double y&&x>SystemParameters.VirtualScreenLeft-100&&y>SystemParameters.VirtualScreenTop-20
+            &&x<SystemParameters.VirtualScreenLeft+SystemParameters.VirtualScreenWidth-60&&y<SystemParameters.VirtualScreenTop+SystemParameters.VirtualScreenHeight-40)
+        {craftCard.Left=x;craftCard.Top=y;return;}
+        var above=abyssCard.IsVisible&&settings.AbyssLeft is null?(Window)abyssCard:drops.IsVisible?drops:player.IsVisible?player:null;
+        craftCard.Left=dock.Left+dock.Width+4;
+        craftCard.Top=above is null?Top:above.Top+above.ActualHeight+6;
+    }
+    public void ToggleCraft(){settings.OverlayCraft=!settings.OverlayCraft;settings.Save();dock.SetCraftOn(settings.OverlayCraft);}
     public void ToggleMinimap(){settings.MinimapVisible=!settings.MinimapVisible;if(settings.MinimapVisible)PlusRequested?.Invoke();settings.Save();dock.SetMinimapOn(settings.MinimapVisible);}
     public void ToggleDrops(){settings.OverlayDrops=!settings.OverlayDrops;if(settings.OverlayDrops)PlusRequested?.Invoke();settings.Save();dock.SetDropsOn(settings.OverlayDrops);}
     static Brush Paint(string color) { var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color)); b.Freeze(); return b; }
@@ -952,11 +974,18 @@ public sealed partial class OverlayWindow : Window
                 PlaceAbyss();
             }
             else if(abyssCard.IsVisible)abyssCard.Hide();
+            if(settings.OverlayCraft&&CraftNow is not null)
+            {
+                if(craftCard.Render(CraftNow()))ThemeWindow(craftCard);
+                if(!craftCard.IsVisible){craftCard.Show();craftCard.Topmost=!attach;Restack(GetForegroundWindow());}
+                PlaceCraft();
+            }
+            else if(craftCard.IsVisible)craftCard.Hide();
             bool mapAllowed=Feature("companionMinimap");dock.SetMinimapAccess(mapAllowed);
             if(settings.MinimapVisible&&mapAllowed){minimap.Render(s);if(!minimap.IsVisible){minimap.Show();minimap.Topmost=!attach;Restack(GetForegroundWindow());}}
             else if(minimap.IsVisible)minimap.Hide();
         }
-        else if(IsVisible){Hide();dock.Hide();drops.Hide();abyssCard.Hide();player.Hide();minimap.Hide();bossWindow.Hide();}
+        else if(IsVisible){Hide();dock.Hide();drops.Hide();abyssCard.Hide();craftCard.Hide();player.Hide();minimap.Hide();bossWindow.Hide();}
     }
     // The caster's kind: a boss in a dungeon or instance, a field / world boss, an elite, or an ordinary monster.
     static string KindOf(CastRow c, int? world)
