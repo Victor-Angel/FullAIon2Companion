@@ -7,7 +7,7 @@
 **A free overlay and companion app for AION 2: DPS meter, boss timers, soul hunting, minimap, market prices, rankings and much more, on top of your game.**
 
 [![Download](https://img.shields.io/github/v/release/l33tm3/FullAIon2Companion?label=Download&logo=windows&color=2ea44f)](https://github.com/l33tm3/FullAIon2Companion/releases/latest)
-[![VirusTotal 1.0.25](https://img.shields.io/badge/VirusTotal%201.0.25-0%2F68-brightgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8)
+[![VirusTotal 1.0.26](https://img.shields.io/badge/VirusTotal%201.0.26-1%2F67-yellowgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f)
 [![Languages](https://img.shields.io/badge/Languages-EN%20%7C%20ES%20%7C%20PT%20%7C%20FR-8a6dd8)](#features)
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-e36cb8?logo=paypal&logoColor=white)](https://paypal.me/martincito45)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -31,7 +31,7 @@ FullAIon2Companion reads the AION 2 traffic that already reaches your PC and sho
 |---|---|
 | **Latest version** | [**FullAIon2Companion 1.0.26**](https://github.com/l33tm3/FullAIon2Companion/releases/latest) (Windows 10/11, 64-bit, ~99 MB) |
 | **SHA-256** | `6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f` |
-| **VirusTotal** | The 1.0.26 report is coming. [1.0.25](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8): 0 of 68 engines. Unsigned installers often trip machine-learning heuristics; the full source of this installer is in this repository. |
+| **VirusTotal** | [![VirusTotal 1.0.26](https://img.shields.io/badge/VirusTotal%201.0.26-1%2F67-yellowgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f) — 1 of 67 engines: only DeepInstinct's machine-learning engine flags it, as it did with 1.0.24, 1.0.23 and 1.0.20 ([1.0.25](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8) was 0 of 68). Unsigned installers often trip such heuristics; the full source of this installer is in this repository. |
 | **Also on** | [governanceai.me](https://governanceai.me/?lang=en#home?download=1) |
 
 **Requirements**
