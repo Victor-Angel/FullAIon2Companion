@@ -11,6 +11,13 @@ namespace FullAIon2Companion;
 /// 00 = none (0 and 0), 04 = natural only, 08 = additional only, 0C = natural then additional. Each frame is the
 /// authoritative state and replaces the last one (2026-10-11: 185 (+100) at 15:10, 215 (+100) at 19:00 with mask 0C).
 /// The game sends it only on changes, so the last value is kept on disk. The maximum (840) is a setting.
+/// <para>
+/// The natural Od regenerates <see cref="Regen"/> every 3 hours on the hour, at UTC 01:00, 04:00 … 22:00 (13:00, 16:00, 19:00,
+/// 22:00 in Chile: the frames of 2026-11-01/02 went 60 → 105 from 13:00 to 22:00 and 45 → 60 at 19:00), and the game sends it only
+/// then or at login. An app opened in the middle of a session showed the last value seen: on 2026-11-04 «15 (+15)» while the
+/// game said «105 (+15)/840», six regenerations after yesterday's 22:00. Until the next frame the value is projected
+/// (<see cref="Project"/>), up to the maximum. The additional Od does not regenerate.
+/// </para>
 /// </summary>
 public sealed class OdEnergy
 {
@@ -19,6 +26,28 @@ public sealed class OdEnergy
     static string FilePath => Path.Combine(Program.DataDirectory, "od-energy.json");
     public OdEnergy() { try { if (File.Exists(FilePath)) state = JsonSerializer.Deserialize<State>(File.ReadAllText(FilePath)); } catch { } }
     public State? Current => state;
+    /// <summary>What the natural Od gains at each regeneration.</summary>
+    public const int Regen = 15;
+    /// <summary>How many regenerations (every 3 hours on the hour, UTC hours 1, 4 … 22) fall after a value seen at
+    /// <paramref name="seen"/> and up to <paramref name="now"/>. The server's clock runs a few seconds ahead (the 19:00 one came
+    /// at 18:59:58), so a value seen in the 2 minutes before one already includes it.</summary>
+    public static int Ticks(DateTime seen, DateTime now)
+    {
+        var from = seen.ToUniversalTime().AddMinutes(2); var to = now.ToUniversalTime();
+        if (to <= from) return 0;
+        // The first tick after «from»: the next hour on the hour whose UTC hour is 1 mod 3.
+        var t = new DateTime(from.Year, from.Month, from.Day, from.Hour, 0, 0, DateTimeKind.Utc).AddHours(1);
+        while (t.Hour % 3 != 1) t = t.AddHours(1);
+        return t > to ? 0 : 1 + (int)((to - t).TotalHours / 3);
+    }
+    /// <summary>The natural Od now from a value seen earlier: its regenerations since, up to <paramref name="max"/> (it does
+    /// not go down to the maximum when already above it). Projected says whether any was added.</summary>
+    public static (int Natural, bool Projected) Project(int natural, DateTime seen, DateTime now, int max)
+    {
+        int ticks = Ticks(seen, now);
+        if (ticks == 0 || natural >= max) return (natural, false);
+        return (Math.Min(max, natural + Regen * ticks), true);
+    }
     public void Add(ReadOnlySpan<byte> frame) => Frames.Walk(frame, Parse);
     static ReadOnlySpan<byte> Signature => [0x01, 0x87, 0x93, 0x03];
     void Parse(ReadOnlySpan<byte> f)

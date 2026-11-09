@@ -468,10 +468,10 @@ public static class Program
                         if ((f1 & 0x04) == 0 || !V(f, ref p, out long actor) || p + 6 > f.Length) return;
                         int skill = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(f[p..]); byte seq = f[p + 4], type = f[p + 5];
                         int marker = -1; for (int i = p + 6; i + 4 <= f.Length; i++) if (f[i] is >= 1 and <= 9 && f[i + 1] == 0 && f[i + 2] == 0 && f[i + 3] == 0) { marker = i; break; }
-                        if (marker < 0) return; int q = marker + 6; if (q >= f.Length || !V(f, ref q, out long amount)) return;
+                        if (marker < 0) return; int q = marker + 4; if (q >= f.Length || !V(f, ref q, out _)) return; int field = q; if (!V(f, ref q, out long amount)) return;
                         string block = Convert.ToHexString(f.Slice(p + 6, marker - (p + 6)));
                         string tail = Convert.ToHexString(f.Slice(q, Math.Min(12, f.Length - q)));
-                        string mid = Convert.ToHexString(f.Slice(marker + 4, 2));
+                        string mid = Convert.ToHexString(f.Slice(marker + 4, field - (marker + 4)));
                         rows.Add($"{t:HH:mm:ss.fff}	{actor}	{target}	{skill}	{f1:X2}	{f2:X2}	{type}	{block}	{f[marker]}	{mid}	{amount}	{tail}");
                     });
                     foreach (var line in File.ReadLines(args[1]))
@@ -624,6 +624,35 @@ public static class Program
                         messages.Add(new { at = at.ToString("HH:mm:ss"), message = locator.Locate(engine.Snapshot()) });
                     }
                     File.WriteAllText(Path.GetFullPath(args[2]), JsonSerializer.Serialize(messages, new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+                }
+                finally { Directory.Delete(testDirectory, true); testDirectory = null; }
+                return 0;
+            }
+            if(args.FirstOrDefault() == "--spawn-dump")
+            {
+                // Diagnostic: replays a recording and lists every creature the server placed (live mobs, checked each second)
+                // with its atlas map and world position, one line per creature and place: map, npc, x, y, first seen. To check
+                // the Atlas's creature markers against where the game really puts them. Appends to args[2] (TSV).
+                testDirectory = Path.Combine(Path.GetTempPath(), "fa2c-replay-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(testDirectory);
+                try
+                {
+                    DateTime at = DateTime.MinValue, next = DateTime.MinValue;
+                    var seen = new HashSet<(string, int, int, int)>(); var rows = new List<string>();
+                    using var engine = new CaptureEngine { ReplayClock = () => at };
+                    foreach (var line in File.ReadLines(args[1]))
+                    {
+                        var s = JsonSerializer.Deserialize<SegmentLog>(line)!; at = s.Timestamp;
+                        engine.Ingest(new(s.Timestamp, s.Source, s.Destination, s.Sequence, Convert.FromBase64String(s.Payload), s.FromServer));
+                        if (at < next) continue;
+                        next = at.AddSeconds(1);
+                        string map = engine.MapId() ?? "?";
+                        foreach (var m in engine.Entities.LiveMobs())
+                            if (seen.Add((map, m.NpcId, (int)Math.Round(m.X / 100), (int)Math.Round(m.Y / 100))))
+                                rows.Add($"{map}\t{m.NpcId}\t{m.X:0}\t{m.Y:0}\t{at:O}\t{Path.GetFileName(args[1])}");
+                    }
+                    File.AppendAllLines(Path.GetFullPath(args[2]), rows);
+                    Console.WriteLine($"{rows.Count} creature places from {Path.GetFileName(args[1])}");
                 }
                 finally { Directory.Delete(testDirectory, true); testDirectory = null; }
                 return 0;
@@ -1213,6 +1242,29 @@ public static class Program
                     return ok ? 0 : 1;
                 }
                 finally { Directory.Delete(testDirectory, true); testDirectory = null; }
+            }
+            if(args.FirstOrDefault() == "--od-test")
+            {
+                // Test: the Od energy's regeneration (+15 every 3 hours on the hour, UTC hours 1 mod 3), checked against what the
+                // game said. Times are Chile's (UTC−3). args[1] the result file.
+                static DateTime Cl(int day, int hour, int minute, int second = 0) => new DateTimeOffset(2026, 11, day, hour, minute, second, TimeSpan.FromHours(-3)).LocalDateTime;
+                var checks = new List<(string Name, bool Ok, string Got)>();
+                void Expect(string name, int natural, DateTime seen, DateTime now, int want, int max = 840)
+                {
+                    var (got, _) = OdEnergy.Project(natural, seen, now, max);
+                    checks.Add((name, got == want, $"{got} (esperado {want})"));
+                }
+                Expect("anoche 22:00 con 15 → hoy 17:30 el juego dice 105", 15, Cl(3, 22, 0, 18), Cl(4, 17, 30), 105);
+                Expect("13:00 con 60 → 22:00 dice 105", 60, Cl(1, 13, 0, 35), Cl(1, 22, 0, 0), 105);
+                Expect("16:00 con 45 → 19:00 dice 60", 45, Cl(2, 16, 0, 33), Cl(2, 19, 0, 6), 60);
+                Expect("una lectura a las 18:59:58 ya trae la de las 19:00", 95, Cl(2, 18, 59, 58), Cl(2, 21, 30), 95);
+                Expect("sin regeneración entre dos horas de regeneración", 30, Cl(2, 16, 10), Cl(2, 18, 50), 30);
+                Expect("no pasa del máximo", 830, Cl(2, 16, 10), Cl(3, 16, 10), 840);
+                Expect("ya en el máximo no cambia", 900, Cl(2, 16, 10), Cl(3, 16, 10), 900);
+                checks.Add(("ocho regeneraciones por día", OdEnergy.Ticks(Cl(2, 0, 30), Cl(3, 0, 30)) == 8, OdEnergy.Ticks(Cl(2, 0, 30), Cl(3, 0, 30)).ToString()));
+                File.WriteAllText(Path.GetFullPath(args[1]), JsonSerializer.Serialize(checks.Select(c => (c.Ok ? "ok " : "FALLA ") + c.Name + " · " + c.Got), new JsonSerializerOptions { WriteIndented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+                foreach (var c in checks) Console.WriteLine((c.Ok ? "ok " : "FALLA ") + c.Name + " · " + c.Got);
+                return checks.All(c => c.Ok) ? 0 : 1;
             }
             if(args.FirstOrDefault() == "--craft-test")
             {

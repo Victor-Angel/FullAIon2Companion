@@ -95,7 +95,9 @@ function filters(){
 }
 function draw(named){
  if(!map||!data)return;layer.clearLayers();
- const q=plain($('atlas-search').value.trim()),hits=[],f=q?null:focus;let count=0;
+ // One row per creature and layer with how many places it has (a monster has all its spawn points now: 11 «Insectoide
+ // mineral gigante adulto», 328 «Araña de rama seca»), built from every match; a row frames its places and opens the first.
+ const q=plain($('atlas-search').value.trim()),hits=[],rows=[],byKey=new Map(),f=q?null:focus;let count=0,found=0;
  for(const c of data.categories){
   // A search looks in every layer, shown or not: the result must not hide behind a filter. So do a pet's soul creatures.
   const off=hidden.includes(key(c));if(!q&&!f&&off)continue;
@@ -109,21 +111,36 @@ function draw(named){
    const m=L.circleMarker([y,x],{renderer,radius:size/2,sprite:face?'/assets/'+face:crest?'/assets/map-icons/'+CRESTS[race]:icon,portrait:!!face,spriteSize:selected?size+8:size,selected,stroke:false,fillOpacity:0,
     title,category:name,group:GROUPS[c.filter]||'',npc:id_,race}).addTo(layer);
    if(landmark)m.bindTooltip(esc(title),{permanent:true,direction:'bottom',className:'atlas-landmark',offset:[0,8]});
-   count++;if((q||focused)&&hits.length<300)hits.push({title,name,at:[y,x],marker:m});
+   count++;
+   if(q||focused){const k=key(c)+'\u0000'+title;let r=byKey.get(k);if(!r){r={title,name,pet:c.filter==='mascotas',plainTitle:plain(title),ids:new Set(),n:0,items:[]};byKey.set(k,r);rows.push(r);}
+    if(id_)r.ids.add(id_);found++;r.n++;const h={title,name,at:[y,x],marker:m};if(r.items.length<600)r.items.push(h);}
   });
  }
+ // The Mascotas layer repeats some creatures at the old atlas's places (its Cognis, Feras… share the creatures' labels): a
+ // creature's own row comes before its pet-layer row, and only the creature's spawn points are framed and opened first.
+ // A pet-layer row repeats a creature when it has the same name as search compares them («Kailin» = «Kailín») or one of
+ // its creature ids (the pet layer spells some in English: «Ursus» for «Urso»).
+ const others=rows.filter(r=>!r.pet),titles=new Set(others.map(r=>r.plainTitle)),ids=new Set(others.flatMap(r=>[...r.ids]));
+ for(const r of rows)r.repeat=r.pet&&(titles.has(r.plainTitle)||[...r.ids].some(x=>ids.has(x)));
+ const repeat=r=>r.repeat;
+ rows.sort((a,b)=>repeat(a)-repeat(b));
+ for(const r of rows){if(repeat(r))continue;for(const h of r.items){if(hits.length>=600)break;hits.push(h);}}
+ if(!hits.length)for(const r of rows)for(const h of r.items){if(hits.length>=600)break;hits.push(h);}
+ layer.found=found;
  $('atlas-count').textContent=`${count.toLocaleString(loc())} puntos visibles`;
  const results=$('atlas-results');results.hidden=!q&&!f;
- const list=hits.slice(0,40).map((h,i)=>`<button type="button" data-atlas-hit="${i}"><b>${esc(h.title)}</b><small>${esc(h.name)}</small></button>`).join('');
+ const list=rows.slice(0,40).map((r,i)=>`<button type="button" data-atlas-hit="${i}"><b>${esc(r.title)}</b><small>${esc(r.name)}${r.pet?` · <em>${GROUPS.mascotas}</em>`:''}${r.n>1?` <span>· ${r.n} lugares</span>`:''}</small></button>`).join('');
  results.innerHTML=q?(hits.length?list:'<p class="muted">Nada con ese nombre en este mapa.</p>')
-  :f?`<p class="atlas-focus"><span>Alma de <b>${esc(f.label)}</b> · ${hits.length} ${hits.length===1?'lugar':'lugares'}</span><button type="button" data-atlas-unfocus title="Quitar" aria-label="Quitar">×</button></p>`+(hits.length?list:'<p class="muted">Las criaturas de su alma no están en los mapas abiertos: viven en mazmorras o en el Abismo.</p>'):'';
+  :f?`<p class="atlas-focus"><span>Alma de <b>${esc(f.label)}</b> · ${found} ${found===1?'lugar':'lugares'}</span><button type="button" data-atlas-unfocus title="Quitar" aria-label="Quitar">×</button></p>`+(hits.length?list:'<p class="muted">Las criaturas de su alma no están en los mapas abiertos: viven en mazmorras o en el Abismo.</p>'):'';
  results.querySelector('[data-atlas-unfocus]')?.addEventListener('click',()=>{focus=null;draw();});
  layer.hits=hits;
- results.querySelectorAll('[data-atlas-hit]').forEach(b=>b.onclick=()=>{const h=hits[Number(b.dataset.atlasHit)];unfollow();map.setView(h.at,5,{animate:false});show(h.marker);});
+ results.querySelectorAll('[data-atlas-hit]').forEach(b=>b.onclick=()=>{const r=rows[Number(b.dataset.atlasHit)],h=r.items[0];unfollow();
+  if(r.items.length>1)map.fitBounds(L.latLngBounds(r.items.map(x=>x.at)),{maxZoom:5,padding:[40,40],animate:false});else map.setView(h.at,5,{animate:false});show(h.marker);});
 }
-// A search frames what it found (up to 300 places), as the website's Atlas does.
-function frame(){const q=$('atlas-search').value.trim();if(!q||!map)return;const pts=[];layer.eachLayer(l=>{if(pts.length<=300)pts.push(l.getLatLng());});
- if(pts.length&&pts.length<=300){unfollow();map.fitBounds(L.latLngBounds(pts),{maxZoom:5,padding:[60,60],animate:false});}}
+// A search frames what it found (up to 600 places: a monster has all its spawn points now, 328 «Araña de rama seca» in
+// Altgard), as the website's Atlas does.
+function frame(){const q=$('atlas-search').value.trim();if(!q||!map)return;const pts=(layer.hits||[]).map(h=>h.at);
+ if(pts.length&&(layer.found||0)<=600){unfollow();map.fitBounds(L.latLngBounds(pts),{maxZoom:5,padding:[60,60],animate:false});}}
 // A marker's card: for a creature, its catalog record (level, grade, hunted or not, its pet soul, the best of its loot);
 // for anything else, its name and category. The hover card is short; the click one adds the button to the full card.
 const pct=c=>typeof c==='number'?(c>=1?`${Math.round(c*10)/10}%`:`${Math.round(c*100)/100}%`):'';
@@ -191,7 +208,9 @@ async function show(m){const o=m.options;tipFor=null;map.closeTooltip(tip);
 async function find(name,slug){
  openTabSafe();await initialLoad;const target={altgard:'2',verteron:'1',morheim:'8',eltnen:'9',ishalgen:'5',poeta:'6'}[slug]||id;
  unfollow();focus=null;if(target!==id)await load(target);$('atlas-search').value=name;draw(plain(name));
- const first=$('atlas-results').querySelector('[data-atlas-hit]');if(first)first.click();
+ // The row of this very creature, not the first whose name contains it («Tog» -> not «Tog mutante»).
+ const all=[...$('atlas-results').querySelectorAll('[data-atlas-hit]')],want=plain(name);
+ const first=all.find(b=>plain(b.querySelector('b')?.textContent||'')===want)||all[0];if(first)first.click();
 }
 // Mascotas → a pet's name: the creatures whose soul it is (NPC ids), on the app's map where most of them live (the open one
 // if it has any), ringed and framed, with the first one's card open, as a search does.

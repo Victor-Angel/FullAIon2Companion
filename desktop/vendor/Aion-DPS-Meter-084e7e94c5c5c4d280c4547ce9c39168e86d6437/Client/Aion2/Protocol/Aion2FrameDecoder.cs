@@ -600,8 +600,13 @@ public sealed class Aion2FrameDecoder
             }
         }
 
-        int q = marker + 6;
-        if (marker < 0 || q >= frame.Length || !TryReadVarint(frame, ref q, out long amount) || amount <= 0 || amount > MaxPlausibleAmount)
+        // After the hit-count marker (u32) comes a varint, then the amount. It was read as two fixed bytes ("D8 74", 14,936),
+        // and once that value passed 16,383 it took three ("A8 84 01", 16,936: the attacker's buffed state, 2026-11-04) and
+        // its last byte was read as the amount: every hit dealt 1. The game's analyzer gave 787K on Divided Aponos in 6 s and
+        // the overlay 1,155 DPS on the target.
+        int q = marker + 4;
+        if (marker < 0 || q >= frame.Length || !TryReadVarint(frame, ref q, out _) || q >= frame.Length
+            || !TryReadVarint(frame, ref q, out long amount) || amount <= 0 || amount > MaxPlausibleAmount)
         {
             SkippedShortFrames++;
             return Array.Empty<DamageEvent>();
@@ -632,6 +637,13 @@ public sealed class Aion2FrameDecoder
         // Chanter's Recuperation on a member who had not cast yet used to read as damage between two
         // players - and one such hit made the resolver paint the whole party as enemies.
         bool isHeal = Aion2SkillNames.IsHealFamily(skillId) && !_entities.IsKnownMonster((int)target);
+        // Damage on oneself is nobody's damage dealt: a Gladiator's «Smashing Blow» companion (11010047, ~50 a hit) and «Red
+        // Mist» land on the caster with the damage bit set, 401 hits and ~100K in five minutes of 2026-11-04, and the game's
+        // analyzer counts neither. Heals on oneself still count.
+        if (!isHeal && source == (int)target)
+        {
+            return Array.Empty<DamageEvent>();
+        }
         // Not IsKnownMonster: started mid-fight, the meter never saw the boss spawn.
         if (!isHeal && _entities.IsKnownPlayer(source) && !_entities.IsKnownPlayer((int)target) && _entities.SummonOwnerOf((int)target) is null)
         {

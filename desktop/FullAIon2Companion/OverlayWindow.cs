@@ -705,6 +705,9 @@ public sealed partial class OverlayWindow : Window
     static TextBlock Label(string text, double size, Brush color) => new() { Text = text, FontSize = size, Foreground = color, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
     static StackPanel Row(params UIElement[] items) { var row = new StackPanel { Orientation = Orientation.Horizontal }; foreach (var i in items) row.Children.Add(i); return row; }
     static string Short(double v) => v >= 1_000_000 ? $"{v / 1_000_000:0.0}M" : v >= 10_000 ? $"{v / 1_000:0.#}k" : v.ToString("N0");
+    // A player's damage in the DPS rows: two decimals in millions, so close rows (1.28M, 1.25M) stay apart.
+    // The thresholds are where the rounding carries over, so 999,960 reads «1.00M» and not «1000.0k».
+    static string DamageFigure(double v) => v >= 999_950 ? $"{v / 1_000_000:0.00}M" : v >= 999.5 ? $"{v / 1_000:0.0}k" : v.ToString("N0");
     static string Clock(double seconds) { var t = TimeSpan.FromSeconds(Math.Max(0, seconds)); return t.TotalHours >= 1 ? t.ToString(@"h\:mm\:ss") : t.ToString(@"m\:ss"); }
     // Internal asset keys (e.g. "Etiquetaskill_FX") leak through when the client targets an effect entity.
     static bool Readable(string? name) => !string.IsNullOrWhiteSpace(name) && !Regex.IsMatch(name, @"^([A-Za-z0-9]+(_[A-Za-z0-9]+)+|Entidad \d+|Criatura \d+)$");
@@ -890,12 +893,15 @@ public sealed partial class OverlayWindow : Window
         }
         party.Visibility = settings.OverlayShowParty && party.Children.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
 
-        // Od energy for dungeons, as the game last sent it (only on changes).
+        // Od energy for dungeons, as the game last sent it (only on changes), plus its regenerations since.
         if (s.Od is { } odNow && settings.OverlayShowOd)
         {
             odGroup.Visibility = Visibility.Visible;
-            odText.Text = $"{odNow.Current} (+{odNow.Bonus})";
-            odGroup.ToolTip = $"Energía Od {odNow.Current} (+{odNow.Bonus}) / {settings.OdMax} · actualizada {odNow.At:HH:mm}";
+            var (natural, projected) = OdEnergy.Project(odNow.Current, odNow.At, DateTime.Now, settings.OdMax);
+            odText.Text = $"{natural} (+{odNow.Bonus})";
+            odGroup.ToolTip = projected
+                ? $"Energía Od {natural} (+{odNow.Bonus}) / {settings.OdMax} · calculada: +15 cada 3 horas desde la lectura de las {odNow.At:HH:mm}"
+                : $"Energía Od {natural} (+{odNow.Bonus}) / {settings.OdMax} · actualizada {odNow.At:HH:mm}";
         }
         else odGroup.Visibility = Visibility.Collapsed;
         UpdatePetCard(s.Pet?.Target);
@@ -1177,15 +1183,43 @@ public sealed partial class OverlayWindow : Window
         // A row whose DPS does not order the list yet (too little sustained hitting): its figure dimmed.
         var dpsText = Label($"{a.Dps:N0}/s", 11.5, ranked ? Brushes.White : Muted); dpsText.FontWeight = ranked ? FontWeights.Bold : FontWeights.Normal;
         DockPanel.SetDock(dpsText, Dock.Right); text.Children.Add(dpsText);
+        // Each one's damage beside the DPS, as the game's analyzer shows it (2026-11-05: «el daño no se ve»).
+        var dmgText = Label(DamageFigure(a.Damage), 10.5, Paint("#C9E4DC")); dmgText.Margin = new Thickness(6, 0, 8, 0); dmgText.VerticalAlignment = VerticalAlignment.Center;
+        DockPanel.SetDock(dmgText, Dock.Right); text.Children.Add(dmgText);
         var icon = new Border { Width = 20, Height = 20, CornerRadius = new CornerRadius(5), Background = Paint("#59000000"), Margin = new Thickness(0, 0, 6, 0),
             Child = classKey is null ? null : new Image { Source = Icon($"/assets/ui/class_icon_{classKey}.png"), Margin = new Thickness(2) } };
         DockPanel.SetDock(icon, Dock.Left); text.Children.Add(icon);
         var name = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
-        name.Inlines.Add(new System.Windows.Documents.Run(a.Name) { FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = self ? Paint("#E9FFF7") : Brushes.White });
+        var holder = new NameAndPower { Child = name, VerticalAlignment = VerticalAlignment.Center };
+        holder.NameRun = new System.Windows.Documents.Run(a.Name) { FontSize = 12, FontWeight = FontWeights.SemiBold, Foreground = self ? Paint("#E9FFF7") : Brushes.White };
+        name.Inlines.Add(holder.NameRun);
         if (power is long pc && pc > 0)
-            name.Inlines.Add(new System.Windows.Documents.Run($"  ⚔{(pc >= 1000 ? $"{pc / 1000.0:0.0}K" : pc.ToString("N0"))}") { FontSize = 10, Foreground = Paint("#9FC9BF") });
-        text.Children.Add(name);
+            name.Inlines.Add(holder.PowerRun = new System.Windows.Documents.Run($"  ⚔{(pc >= 1000 ? $"{pc / 1000.0:0.0}K" : pc.ToString("N0"))}") { FontSize = 10, FontWeight = FontWeights.Normal, Foreground = Paint("#9FC9BF") });
+        text.Children.Add(holder);
         grid.Children.Add(text);
         return grid;
+    }
+    /// <summary>A ranking row's name and, after it, the player's combat power. With the damage beside the DPS (1.0.27) a
+    /// narrow style with a wide font (Noir, Arcade, Kawaii) had no room for both and the power came out cut («⚔16…»): when
+    /// they do not fit together the power is left out and the name keeps its room (2026-11-09 review).</summary>
+    sealed class NameAndPower : Decorator
+    {
+        public System.Windows.Documents.Run? NameRun, PowerRun;
+        protected override Size MeasureOverride(Size constraint)
+        {
+            if (Child is TextBlock t && NameRun is not null && PowerRun is not null && !double.IsInfinity(constraint.Width))
+            {
+                double dip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+                // Both measured as the TextBlock lays them out: the row's font (the style's, inherited), each run's size and
+                // weight, and the overlay's Display text mode (Ideal widths came out up to 6 px narrower and the PC was cut).
+                double Wide(System.Windows.Documents.Run r) => new FormattedText(r.Text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+                    new Typeface(t.FontFamily, t.FontStyle, r.FontWeight, t.FontStretch), r.FontSize, Brushes.White, null,
+                    TextOptions.GetTextFormattingMode(t), dip).WidthIncludingTrailingWhitespace;
+                bool fits = Wide(NameRun) + Wide(PowerRun) <= constraint.Width;
+                // Changed only when it differs; the TextBlock is measured right after with what it holds.
+                if (fits != t.Inlines.Contains(PowerRun)) { if (fits) t.Inlines.Add(PowerRun); else t.Inlines.Remove(PowerRun); }
+            }
+            return base.MeasureOverride(constraint);
+        }
     }
 }

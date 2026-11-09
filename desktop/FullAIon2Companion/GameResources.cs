@@ -17,7 +17,8 @@ namespace FullAIon2Companion;
 /// </summary>
 public sealed class GameResources
 {
-    public sealed record Counter(uint Key, long Value, long Extra, bool Long);
+    /// <summary>One counter; At is when the game last sent it (its frame's time), even if the value did not change.</summary>
+    public sealed record Counter(uint Key, long Value, long Extra, bool Long, DateTime At = default);
     const int Full = 0x0B61, Change = 0x0C61;
     readonly object gate = new();
     readonly Dictionary<uint, Counter> counters = [];
@@ -40,14 +41,14 @@ public sealed class GameResources
             if (!Varint(f, ref p, out long count) || count is < 1 or > 2000) return;
             var list = new List<Counter>();
             if (!Entries(f, p, (int)count, list)) return;
-            lock (gate) { counters.Clear(); foreach (var c in list) counters[c.Key] = c; Complete = true; At = at; Version++; }
+            lock (gate) { counters.Clear(); foreach (var c in list) counters[c.Key] = c with { At = at }; Complete = true; At = at; Version++; }
         }
         else if (opcode == Change)
         {
             // One entry after a 00, then a reason byte (02/03 seen).
             var list = new List<Counter>();
             if (!Entries(f, 3, 1, list, allowTail: 1)) return;
-            lock (gate) { foreach (var c in list) counters[c.Key] = c; At = at; Version++; }
+            lock (gate) { foreach (var c in list) counters[c.Key] = c with { At = at }; At = at; Version++; }
         }
     }
     // The entries in order; mask 0C carries one or two varints (key 1 at login: one), so both are tried and the reading

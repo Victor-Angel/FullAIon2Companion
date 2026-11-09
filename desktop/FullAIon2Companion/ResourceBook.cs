@@ -45,8 +45,15 @@ public sealed class ResourceBook
             countersVersion = counters.Version;
             var now = counters.Counters;
             // A change alone (0C61) updates what the login list said; with no login list seen it adds to the stored one.
-            var merged = counters.Complete ? [] : new Dictionary<string, long[]>(entry.Counters);
-            foreach (var c in now.Values) merged[c.Key.ToString()] = [c.Value, c.Extra, c.Long ? 1 : 0];
+            // Each counter keeps when the game last sent it (4th field, Unix seconds): the Od regenerates from it, and another
+            // counter's change must not make an old Od value look new. Counters saved by 1.0.26 have no 4th field: they get the
+            // entry's CountersAt (when they were saved) before it moves on, or the Od would take the time of any later change.
+            var merged = counters.Complete ? [] : entry.Counters.ToDictionary(e => e.Key, e =>
+                e.Value.Length != 3 || entry.CountersAt is not DateTime saved ? e.Value
+                    : new[] { e.Value[0], e.Value[1], e.Value[2], new DateTimeOffset(saved).ToUnixTimeSeconds() });
+            // The time each counter came in its own frame (a value sent again unchanged is a new reading too).
+            foreach (var c in now.Values)
+                merged[c.Key.ToString()] = [c.Value, c.Extra, c.Long ? 1 : 0, new DateTimeOffset(c.At == default ? at : c.At).ToUnixTimeSeconds()];
             entry = entry with { Counters = merged, CountersAt = at };
             changed = true;
         }
@@ -68,7 +75,7 @@ public sealed class ResourceBook
     }
 
     /// <summary>The panel's view: every character, the one in play first, with its coins and counters.</summary>
-    public object View(string? character, int? server)
+    public object View(string? character, int? server, int odMax = 840)
     {
         string? live = string.IsNullOrWhiteSpace(character) ? null : $"{server}:{character}".ToLowerInvariant();
         return book.OrderByDescending(e => e.Key == live).ThenByDescending(e => e.Value.CountersAt ?? e.Value.CoinsAt).Select(e =>
@@ -77,7 +84,8 @@ public sealed class ResourceBook
             long kinah = v.Coins.GetValueOrDefault(Kinah.ToString());
             // Kina (Bound) is an inventory item (2026-10-13 22:41: 276,000); counter 3 (6,649,000) is something else.
             long? bound = v.Coins.TryGetValue(BoundKinah.ToString(), out var b) ? b : null;
-            var od = v.Counters.TryGetValue(OdCounter.ToString(), out var o) ? new { natural = o[0], extra = o[1] } : null;
+            // The Od with its regenerations since it was sent (OdEnergy.Project), like the overlay.
+            var od = v.Counters.TryGetValue(OdCounter.ToString(), out var o) ? OdView(o, v.CountersAt, odMax) : null;
             var coins = v.Coins.Where(c => c.Key != Kinah.ToString() && c.Key != BoundKinah.ToString()).Select(c =>
             {
                 var info = InventoryWatch.Info(int.Parse(c.Key));
@@ -92,4 +100,10 @@ public sealed class ResourceBook
         }).ToList();
     }
     static string? ServerName(int id) => RoomRoster.ServerName(id);
+    static object OdView(long[] o, DateTime? countersAt, int max)
+    {
+        DateTime? seen = o.Length > 3 ? DateTimeOffset.FromUnixTimeSeconds(o[3]).LocalDateTime : countersAt;
+        var (natural, projected) = seen is DateTime at ? OdEnergy.Project((int)o[0], at, DateTime.Now, max) : ((int)o[0], false);
+        return new { natural, extra = o[1], estimated = projected, seen };
+    }
 }

@@ -29,9 +29,9 @@ FullAIon2Companion reads the AION 2 traffic that already reaches your PC and sho
 
 | | |
 |---|---|
-| **Latest version** | [**FullAIon2Companion 1.0.26**](https://github.com/l33tm3/FullAIon2Companion/releases/latest) (Windows 10/11, 64-bit, ~99 MB) |
-| **SHA-256** | `6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f` |
-| **VirusTotal** | [![VirusTotal 1.0.26](https://img.shields.io/badge/VirusTotal%201.0.26-1%2F67-yellowgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f) — 1 of 67 engines: only DeepInstinct's machine-learning engine flags it, as it did with 1.0.24, 1.0.23 and 1.0.20 ([1.0.25](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8) was 0 of 68). Unsigned installers often trip such heuristics; the full source of this installer is in this repository. |
+| **Latest version** | [**FullAIon2Companion 1.0.27**](https://github.com/l33tm3/FullAIon2Companion/releases/latest) (Windows 10/11, 64-bit, ~99 MB) |
+| **SHA-256** | `093b04c291df2b624060eb90b8c2acf46b55ac620f0057da0a148697e6eb5063` |
+| **VirusTotal** | The 1.0.27 report is coming. [![VirusTotal 1.0.26](https://img.shields.io/badge/VirusTotal%201.0.26-1%2F67-yellowgreen?logo=virustotal&logoColor=white)](https://www.virustotal.com/gui/file/6d4e3f6bdfc876d4ef2a59ad5177c871af9c0750d5eeebd04627f7dfe0941e4f) — 1 of 67 engines for 1.0.26: only DeepInstinct's machine-learning engine flagged it, as it did with 1.0.24, 1.0.23 and 1.0.20 ([1.0.25](https://www.virustotal.com/gui/file/649c65806b116937b9813f5f24cdd6e4cb36a4556f9c3ba559cf5c3d62ca43d8) was 0 of 68). Unsigned installers often trip such heuristics; the full source of this installer is in this repository. |
 | **Also on** | [governanceai.me](https://governanceai.me/?lang=en#home?download=1) |
 
 **Requirements**
@@ -47,7 +47,7 @@ FullAIon2Companion reads the AION 2 traffic that already reaches your PC and sho
 ## Features
 
 ### The overlay, always on top of your game
-Your DPS, damage and healing, your group's ranking by DPS with each player's class (each one over their own time hitting, like the game's analyzer), the target with its health and, beside it, the loot table of what you are hunting. Your Abyss rank and the next events sit in its header.
+Your DPS, damage and healing, your group's ranking by DPS with each player's class (each one over their own time hitting, like the game's analyzer) and their damage, the target with its health and, beside it, the loot table of what you are hunting. Your Abyss rank and the next events sit in its header.
 
 ### Know whether you will beat the enrage
 <img src="docs/images/boss-card.webp" alt="Boss card" width="420" align="right">
@@ -103,7 +103,7 @@ The atlas of Atreia around your position while you play: creatures and bosses, h
 <br clear="right">
 
 ### The map of Atreia, inside the app
-Portraits of every creature, search across every layer, *You are here* while you play, your pins and routes, and the upcoming events beside the map.
+Portraits of every creature at its real spawn points, search across every layer (grouped by creature, with its number of places), *You are here* while you play, your pins and routes, and the upcoming events beside the map.
 
 <img src="docs/images/panel-atlas.webp" alt="Map of Atreia in the panel" width="900">
 
@@ -225,7 +225,7 @@ dotnet build desktop/FullAIon2Companion -c Release -o desktop/build
 desktop/build/FullAIon2Companion.exe
 
 # Installer (self-contained, written to desktop/release/<version>)
-powershell -ExecutionPolicy Bypass -File scripts/build-companion.ps1 -Version 1.0.26 -Output desktop/release/1.0.26
+powershell -ExecutionPolicy Bypass -File scripts/build-companion.ps1 -Version 1.0.27 -Output desktop/release/1.0.27
 ```
 
 The app has offline self-tests, for example `FullAIon2Companion.exe --license-test out.json`, `--verify-test out.json`, `--overlay-styles <folder> [en]` (draws the overlay in all 36 styles) or `--skill-card-test <folder>`.

@@ -122,6 +122,7 @@
 ^🐾 \+1 (.+) · (\d+) almas? hoy$	🐾 +1 $1 · $2 souls today	🐾 +1 $1 · $2 almas hoje	🐾 +1 $1 · $2 âmes aujourd'hui
 ^🐾 (.+) · Nv\. (\d+) · MÁX\.$	🐾 $1 · Lv. $2 · MAX	🐾 $1 · Nv. $2 · MÁX.	🐾 $1 · Niv. $2 · MAX
 ^🐾 (.+) · Nv\. (\d+) · (\d+)/(\d+) · faltan (\d+)(.*)$	🐾 $1 · Lv. $2 · $3/$4 · $5 left$6	🐾 $1 · Nv. $2 · $3/$4 · faltam $5$6	🐾 $1 · Niv. $2 · $3/$4 · reste $5$6
+^Energía Od (.+) · calculada: \+15 cada 3 horas desde la lectura de las (.+)$	Od energy $1 · estimated: +15 every 3 hours since the reading at $2	Energia Od $1 · calculada: +15 a cada 3 horas desde a leitura das $2	Énergie Od $1 · estimée : +15 toutes les 3 heures depuis la lecture de $2
 ^Energía Od (.+) · actualizada (.+)$	Od energy $1 · updated $2	Energia Od $1 · atualizada $2	Énergie Od $1 · mise à jour $2
 ^OBJETIVO · (.+) / (.+) muertes$	GOAL · $1 / $2 kills	OBJETIVO · $1 / $2 abates	OBJECTIF · $1 / $2 éliminations
 ^OBJETIVO · (.+) / (.+) kinah en botín$	GOAL · $1 / $2 kinah in loot	OBJETIVO · $1 / $2 kinah em saque	OBJECTIF · $1 / $2 kinah de butin

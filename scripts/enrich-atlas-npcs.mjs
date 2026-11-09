@@ -2,6 +2,9 @@ import fs from 'node:fs/promises';
 const read=async p=>JSON.parse(await fs.readFile(p,'utf8'));
 const catalog=await read('public/data/game/catalog.json'),rows=catalog.entries.filter(x=>x.detail==='npc'),npcs=new Map(rows.map(x=>[Number(x.id),x])),families=new Map(),index=new Map();
 const norm=x=>(x||'').trim().toLowerCase();
+// --index-only: rebuild npc-index.json (each creature's places per map) from the atlas as it is, without rewriting the atlas
+// files (2026-11-09: scripts/build-companion-atlas-npcs.py writes the creature layers; 11 «Insectoide mineral gigante adulto», not 1).
+const indexOnly=process.argv.includes('--index-only');
 for(let i=0;i<rows.length;i+=32)await Promise.all(rows.slice(i,i+32).map(async n=>{n.record=await read('public/data/game/npc/'+n.id+'.json');const key=norm(n.originalName||n.name);if(!families.has(key))families.set(key,[]);families.get(key).push(n);}));
 for(const group of families.values())group.sort((a,b)=>a.level-b.level||a.id-b.id);
 const maps=(await read('public/data/atlas-index.json')).groups.flatMap(x=>x.maps),mapNames=new Map(maps.map(x=>[String(x.id),x.name])),slugs={'1':'verteron','2':'altgard','3':'reshanta','5':'ishalgen','6':'poeta','7':'reshanta-mid','8':'morheim','9':'eltnen','10':'reshanta-top'};
@@ -12,5 +15,11 @@ await Promise.all(Array.from({length:16},async()=>{while(cursor<files.length){co
  const portrait=group.find(x=>real(x.icon))?.icon;n??=group[0];if(portrait){m.npcIcon=portrait;portraits++;}m.name=n.name;m.originalName=n.originalName||m.originalName||n.name;m.creatureName=n.record.creatureName;
  if(group.length===1)m.npcId=n.id;else if(!m.npcId){m.npcVariants=group.map(x=>({id:x.id,level:x.level}));variants++;}
  linked++;const familyKey=norm(n.originalName||n.name);if(!index.has(familyKey))index.set(familyKey,{id:n.id,name:n.name,originalName:n.originalName,icon:portrait||n.icon,level:n.level,kind:n.kind,locations:{}});const x=index.get(familyKey);if(portrait&&!real(x.icon))x.icon=portrait;x.locations[d.id]??={mapId:d.id,name:mapNames.get(d.id)||d.name,count:0};x.locations[d.id].count++;
- }await fs.writeFile('public/data/atlas/'+file,JSON.stringify(d));}}));
-await fs.writeFile('public/data/game/npc-index.json',JSON.stringify({fetchedAt:new Date().toISOString(),entries:[...index.values()].map(x=>({...x,locations:Object.values(x.locations)}))}));console.log(JSON.stringify({creatureFamilies:index.size,linkedSpawns:linked,portraitSpawns:portraits,variantSpawns:variants}));
+ }if(!indexOnly)await fs.writeFile('public/data/atlas/'+file,JSON.stringify(d));}}));
+let entries=[...index.values()].map(x=>({...x,locations:Object.values(x.locations)}));
+// --index-only keeps each family's entry as it was (the id the parallel reads happened to pick, its name, its place in the
+// list) and only updates its places, and a generic marker icon for a portrait; new families go last, gone ones go.
+if(indexOnly){const fresh=new Map(entries.map(x=>[norm(x.originalName||x.name),x])),kept=[];
+ for(const o of (await read('public/data/game/npc-index.json')).entries){const k=norm(o.originalName||o.name),x=fresh.get(k);if(!x)continue;fresh.delete(k);kept.push({...o,icon:real(o.icon)?o.icon:x.icon,locations:x.locations});}
+ entries=[...kept,...fresh.values()];}
+await fs.writeFile('public/data/game/npc-index.json',JSON.stringify({fetchedAt:new Date().toISOString(),entries}));console.log(JSON.stringify({creatureFamilies:index.size,linkedSpawns:linked,portraitSpawns:portraits,variantSpawns:variants}));

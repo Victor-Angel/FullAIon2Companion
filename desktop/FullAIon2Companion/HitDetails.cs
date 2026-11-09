@@ -37,8 +37,9 @@ public sealed class HitDetails
         int marker = -1;
         for (int i = p + 6; i + 4 <= f.Length; i++)
             if (f[i] is >= 1 and <= 9 && f[i + 1] == 0 && f[i + 2] == 0 && f[i + 3] == 0) { marker = i; break; }
-        int q = marker + 6;
-        if (marker < 0 || q >= f.Length || !Varint(f, ref q, out long amount) || amount <= 0) return;
+        // After the marker, a varint (two bytes until it passed 16,383 on 2026-11-04), then the amount: as the decoder reads it.
+        int q = marker + 4;
+        if (marker < 0 || q >= f.Length || !Varint(f, ref q, out _) || !Varint(f, ref q, out long amount) || amount <= 0) return;
         var key = (at.Ticks, skill, amount);
         recent[key] = new(sequence, f[marker], flags1, flags2, type, (flags1 & 0x02) != 0 && marker > p + 6 ? f[p + 6] : (byte)0);
         order.Enqueue(key);
