@@ -988,6 +988,39 @@ public static class Program
                 finally { Directory.Delete(testDirectory, true); testDirectory = null; }
                 return 0;
             }
+            if(args.FirstOrDefault() == "--craft-quote-test")
+            {
+                const int server = 2401, horn = 610710006, mind = 610511013;
+                var inventory = new InventoryWatch();
+                var frame = new byte[25]; frame[0] = 0x1b; frame[1] = 0x56; frame[2] = 1;
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(frame.AsSpan(5), 1);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(frame.AsSpan(13), horn);
+                System.Buffers.Binary.BinaryPrimitives.WriteInt64LittleEndian(frame.AsSpan(17), 7);
+                inventory.Add(frame, DateTime.Now.AddSeconds(1));
+                var now = DateTime.UtcNow;
+                var full = new MarketBoard(server, now,
+                    [new(horn, "Balaur Horn", "materials", 100, null, 3, null, now),
+                     new(mind, "Angry Mind", "materials", 7, null, 2, null, now)]);
+                var quote = CraftCalculator.Quote(111013011, 2, server, inventory, full);
+                var partial = CraftCalculator.Quote(111013011, 2, server, inventory, full with { Rows = [full.Rows[0]] });
+                var batch = CraftCalculator.Quote(125016002, 11, server, inventory, full);
+                var source = new TestMarketSource([horn, mind]); MarketPrices.Source = source;
+                var prices = new MarketPrices();
+                prices.RefreshAsync(server, CancellationToken.None).GetAwaiter().GetResult();
+                prices.RefreshAsync(server, CancellationToken.None).GetAwaiter().GetResult();
+                MarketPrices.Source = null;
+                var checks = new (string Name, bool Ok)[]
+                {
+                    ("11 salidas de 10 requieren 2 fabricaciones", batch.Crafts == 2 && batch.Produced == 20),
+                    ("se descuentan 7 materiales propios de 22", quote.Materials.First(m => m.Item == horn) is { Required: 22, Owned: 7, Missing: 15 }),
+                    ("se separa inversión nueva y valor propio", quote.BuyCost == 1556 && quote.OwnedValue == 700 && quote.TotalValue == 2256),
+                    ("sin anuncio activo no se inventa un precio", partial.BuyCost is null && partial.TotalValue is null),
+                    ("material vinculado no se valora como venta del Mercado", batch.Materials.Any(m => m.Bound && m.UnitPrice is null)),
+                    ("cada cálculo vuelve a consultar el Mercado", source.Calls == 2),
+                };
+                foreach (var check in checks) Console.WriteLine((check.Ok ? "ok " : "FALLA ") + check.Name);
+                return checks.All(c => c.Ok) ? 0 : 1;
+            }
             if(args.FirstOrDefault() == "--market-test")
             {
                 // Test: replays recordings (args[2..]) and writes the Mercado tab (MarketPrices.View) and the loot HUD of each to

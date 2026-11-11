@@ -150,6 +150,32 @@ public sealed class MarketPrices
         });
     }
 
+    /// <summary>Gets a new Market response for a calculation, even if the cached board is still fresh.</summary>
+    public async Task<MarketBoard> RefreshAsync(int server, CancellationToken cancel)
+    {
+        if (server <= 0) throw new InvalidOperationException("Selecciona un servidor del Mercado.");
+        var source = Source ?? throw new InvalidOperationException("La fuente de precios del Mercado no está disponible.");
+        try
+        {
+            var board = await source.BoardAsync(server, cancel);
+            lock (gate)
+            {
+                book.Boards[server] = board;
+                Index(server, board);
+                tried[server] = DateTime.UtcNow;
+                status = "";
+                Version++;
+            }
+            Save();
+            return board;
+        }
+        catch (Exception ex)
+        {
+            lock (gate) { status = $"{source.Name}: {ex.Message}"; Version++; }
+            throw;
+        }
+    }
+
     /// <summary>
     /// «Mi inventario»: the character's inventory (currencies apart) with each item's price and value on that server, the
     /// most valuable first. Bound items cannot be sold, so they are listed but not counted.

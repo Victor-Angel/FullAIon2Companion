@@ -34,6 +34,7 @@
     <Content Include="skill-texts.json" Link="data/skill-texts.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="daevanion-extra.json" Link="data/daevanion-extra.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="craft-recipes.json" Link="data/craft-recipes.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../public/data/game/encyclopedia/recipes.json" Link="data/recipes.json" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="pet-icons/*.webp" Link="assets/pets/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="pet-badges/*.png" Link="assets/pet-badges/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="npc-siblings.json" Link="data/npc-siblings.json" CopyToOutputDirectory="PreserveNewest" />

@@ -682,6 +682,46 @@ Solo favoritos	Favorites only	Somente favoritos	Favoris uniquement
 Añadir a favoritos	Add to favorites	Adicionar aos favoritos	Ajouter aux favoris
 Quitar de favoritos	Remove from favorites	Remover dos favoritos	Retirer des favoris
 No hay artículos favoritos en esta vista.	No favorite items in this view.	Não há itens favoritos nesta visualização.	Aucun article favori dans cette vue.
+Calculadora de fabricación	Crafting calculator	Calculadora de fabricação	Calculateur de fabrication
+Inventario propio y precios del servidor elegido	Your inventory and prices for the selected server	Seu inventário e preços do servidor selecionado	Votre inventaire et les prix du serveur sélectionné
+Receta	Recipe	Receita	Recette
+Buscar receta u objeto	Search for a recipe or item	Buscar receita ou item	Rechercher une recette ou un objet
+Cantidad que quieres fabricar	Quantity to craft	Quantidade a fabricar	Quantité à fabriquer
+Calcular con precios nuevos	Calculate with fresh prices	Calcular com preços atualizados	Calculer avec les prix actuels
+Elige una receta y pulsa Calcular. Se consultará el Mercado en ese momento.	Choose a recipe and click Calculate. Market prices will be checked then.	Escolha uma receita e clique em Calcular. Os preços do Mercado serão consultados nesse momento.	Choisissez une recette et cliquez sur Calculer. Les prix du Marché seront consultés à ce moment-là.
+No se encontraron recetas.	No recipes found.	Nenhuma receita encontrada.	Aucune recette trouvée.
+Receta elegida	Selected recipe	Receita selecionada	Recette choisie
+Produce	Produces	Produz	Produit
+por fabricación	per craft	por fabricação	par fabrication
+Por fabricación	Per craft	Por fabricação	Par fabrication
+Valor de materiales que ya tienes	Value of materials you own	Valor dos materiais que você possui	Valeur des matériaux possédés
+Dinero para comprar lo faltante	Kinah needed for missing materials	Kinah necessária para os materiais faltantes	Kinahs nécessaires pour les matériaux manquants
+Valor total de materiales	Total material value	Valor total dos materiais	Valeur totale des matériaux
+Material	Material	Material	Matériau
+Necesitas	Required	Necessário	Nécessaire
+Disponibles	Owned	Disponíveis	Possédés
+Comprar	Buy	Comprar	Acheter
+Precio unitario	Unit price	Preço unitário	Prix unitaire
+Costo compra	Purchase cost	Custo de compra	Coût d'achat
+Sin anuncios	No active listings	Sem anúncios ativos	Aucune annonce active
+Vinculado	Bound	Vinculado	Lié
+Sin precio completo	Incomplete price	Preço incompleto	Prix incomplet
+Solicitados	Requested	Solicitados	Demandés
+Producidos	Produced	Produzidos	Produits
+Precios consultados ahora. Foto del Mercado	Prices checked now. Market snapshot	Preços consultados agora. Foto do Mercado	Prix consultés maintenant. Instantané du Marché
+Inventario parcial: vuelve a entrar con el personaje y calcula de nuevo.	Partial inventory: log in again with your character and recalculate.	Inventário parcial: entre novamente com seu personagem e recalcule.	Inventaire partiel : reconnectez votre personnage et recalculez.
+Hay materiales faltantes sin anuncios activos; el costo de compra no está completo.	Some missing materials have no active listings; the purchase cost is incomplete.	Alguns materiais faltantes não têm anúncios ativos; o custo de compra está incompleto.	Certains matériaux manquants n'ont aucune annonce active ; le coût d'achat est incomplet.
+Faltan materiales vinculados: no se venden en el Mercado.	Bound materials are missing: they are not sold on the Market.	Faltam materiais vinculados: eles não são vendidos no Mercado.	Des matériaux liés manquent : ils ne sont pas vendus au Marché.
+Estimación al menor precio anunciado; el costo real puede variar según la cantidad disponible.	Estimate at the lowest listed price; the actual cost may vary with available quantities.	Estimativa pelo menor preço anunciado; o custo real pode variar conforme a quantidade disponível.	Estimation au prix affiché le plus bas ; le coût réel peut varier selon les quantités disponibles.
+No se pudo cargar el catálogo de recetas.	Could not load the recipe catalog.	Não foi possível carregar o catálogo de receitas.	Impossible de charger le catalogue de recettes.
+Elige una cantidad entre 1 y 100.000.	Choose a quantity between 1 and 100,000.	Escolha uma quantidade entre 1 e 100.000.	Choisissez une quantité entre 1 et 100 000.
+El costo supera el límite de cálculo.	The cost exceeds the calculation limit.	O custo excede o limite de cálculo.	Le coût dépasse la limite de calcul.
+Consultando precios del Mercado…	Checking Market prices…	Consultando preços do Mercado…	Consultation des prix du Marché…
+No se pudieron actualizar los precios del Mercado.	Could not refresh Market prices.	Não foi possível atualizar os preços do Mercado.	Impossible d'actualiser les prix du Marché.
+Cálculo actualizado con precios del Mercado.	Calculation updated with Market prices.	Cálculo atualizado com os preços do Mercado.	Calcul actualisé avec les prix du Marché.
+Receta sin materiales conocidos.	Recipe has no known materials.	Receita sem materiais conhecidos.	Recette sans matériaux connus.
+Selecciona un servidor del Mercado.	Select a Market server.	Selecione um servidor do Mercado.	Sélectionnez un serveur du Marché.
+La fuente de precios del Mercado no está disponible.	The Market price source is unavailable.	A fonte de preços do Mercado não está disponível.	La source des prix du Marché est indisponible.
 Precio más bajo	Lowest price	Menor preço	Prix le plus bas
 En venta	On sale	À venda	En vente
 último	last	último	dernier

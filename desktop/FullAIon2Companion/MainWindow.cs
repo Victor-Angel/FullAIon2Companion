@@ -652,6 +652,21 @@ public sealed class MainWindow : Window
                     market.SetManual(MarketViewServer,item,price);marketKey="";
                     message=price>0?$"Precio guardado: {InventoryWatch.Info(item).Name} a {price:N0} kinah en este servidor.":$"Precio de {InventoryWatch.Info(item).Name} borrado.";break;
                 }
+                case "craft-quote":
+                {
+                    int recipe=p.GetProperty("recipe").GetInt32(),quantity=p.GetProperty("quantity").GetInt32();
+                    if(MarketViewServer<=0)throw new InvalidOperationException(L.T("Selecciona un servidor del Mercado."));
+                    using var cancel=new CancellationTokenSource(TimeSpan.FromSeconds(60));
+                    MarketBoard fresh;
+                    try{fresh=await market.RefreshAsync(MarketViewServer,cancel.Token);}
+                    catch(Exception ex){throw new InvalidOperationException(L.T("No se pudieron actualizar los precios del Mercado."),ex);}
+                    CraftQuote quote;
+                    try{quote=CraftCalculator.Quote(recipe,quantity,MarketViewServer,engine.Inventory,fresh);}
+                    catch(OverflowException){throw new InvalidOperationException(L.T("El costo supera el límite de cálculo."));}
+                    marketKey=boardKey="";
+                    await view.ExecuteScriptAsync("window.renderCraftQuote?.("+JsonSerializer.Serialize(quote)+")");
+                    message=L.T("Cálculo actualizado con precios del Mercado.");break;
+                }
                 case "atlas-marks":
                 {
                     var (pins,routes)=atlasMarks.Set(p.GetProperty("map").GetString()??"",p.GetProperty("pins"),p.GetProperty("routes"));marksSent=atlasMarks.Version;
