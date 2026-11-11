@@ -337,7 +337,13 @@ public sealed class MainWindow : Window
     }
     IEnumerable<Announcement> ActiveAnnouncements()=>(companion.LastPull?.Announcements??[]).Where(a=>a.ActiveAt(DateTime.UtcNow));
     string? updateFile;string updateStatus="";
-    Release? LatestRelease()=>companion.LastPull?.Releases?.GetValueOrDefault(settings.UpdateChannel);
+    GitHubRelease? personalRelease;
+    GitHubRelease? LatestRelease()=>personalRelease;
+    async Task CheckPersonalUpdate(bool quiet)
+    {
+        try { var found=await GitHubUpdater.CheckAsync();if(found?.Version!=personalRelease?.Version)updateFile=null;personalRelease=found;if(!quiet)updateStatus=personalRelease is null?"Todavía no hay una compilación publicada en tu GitHub":AppVersion.IsNewer(personalRelease.Version,AppVersion.Current)?$"Versión {personalRelease.Version} disponible":"Tienes la última versión de tu GitHub"; }
+        catch(Exception ex) { if(!quiet)updateStatus=$"No se pudo consultar GitHub: {ex.Message}"; }
+    }
     // ---- Novedades: the update available and the site's notices, in one window with an unread dot on the overlay strip.
     NewsWindow? newsWindow;
     readonly HashSet<string> newsToasted=[];
@@ -346,10 +352,10 @@ public sealed class MainWindow : Window
         var items=new List<NewsItem>();
         var r=LatestRelease();
         if(r is not null&&AppVersion.IsNewer(r.Version,AppVersion.Current))
-            items.Add(new("update:"+r.Version,"update",$"Versión {r.Version}",string.IsNullOrWhiteSpace(r.Notes)?"Sin notas de versión.":r.NotesIn(L.Language),"info",
+            items.Add(new("update:"+r.Version,"update",$"Versión {r.Version}",string.IsNullOrWhiteSpace(r.Notes)?"Sin notas de versión.":r.Notes,"info",
                 $"Tienes la {AppVersion.Current} · {r.Bytes/1048576.0:0.0} MB"+(r.CreatedUtc is DateTime c?$" · publicada el {c.ToLocalTime():dd/MM/yyyy}":"")));
         foreach(var a in ActiveAnnouncements())items.Add(new("notice:"+a.Id,"notice",a.Title,a.Body,a.Level));
-        if(items.Count==0&&r is not null&&r.Version==AppVersion.Current&&!string.IsNullOrWhiteSpace(r.Notes))items.Add(new("current:"+r.Version,"current",$"Versión {r.Version}",r.NotesIn(L.Language),"info","La que tienes instalada"));
+        if(items.Count==0&&r is not null&&r.Version==AppVersion.Current&&!string.IsNullOrWhiteSpace(r.Notes))items.Add(new("current:"+r.Version,"current",$"Versión {r.Version}",r.Notes,"info","La que tienes instalada"));
         return items;
     }
     void OpenNews()
@@ -377,10 +383,10 @@ public sealed class MainWindow : Window
     /// the new version; the data folder is not touched) and quits.</summary>
     async Task InstallUpdate()
     {
-        var rel=LatestRelease()??throw new InvalidOperationException("No hay una versión publicada en este canal");
+        var rel=LatestRelease()??throw new InvalidOperationException("No hay una versión publicada en tu GitHub");
         if(!AppVersion.IsNewer(rel.Version,AppVersion.Current))throw new InvalidOperationException("Ya tienes la última versión");
         newsWindow?.SetStatus($"Descargando {rel.Version}…");
-        if(updateFile is null||!File.Exists(updateFile))updateFile=await companion.DownloadReleaseAsync(rel,Path.Combine(Program.DataDirectory,"updates"));
+        if(updateFile is null||!File.Exists(updateFile))updateFile=await GitHubUpdater.DownloadAsync(rel,Path.Combine(Program.DataDirectory,"updates"));
         var info=new FileInfo(updateFile);string hash;
         using(var stream=File.OpenRead(updateFile))hash=Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(stream)).ToLowerInvariant();
         if(info.Length!=rel.Bytes||hash!=rel.Sha256){File.Delete(updateFile);updateFile=null;throw new InvalidOperationException("El instalador descargado no coincide con el publicado; se borró. Vuelve a intentarlo.");}
@@ -395,8 +401,8 @@ public sealed class MainWindow : Window
     {
         var r=LatestRelease();
         bool newer=r is not null&&AppVersion.IsNewer(r.Version,AppVersion.Current);
-        return new{current=AppVersion.Current,channel=settings.UpdateChannel,paired=companion.Paired,latest=r is null?null:new{r.Version,Notes=r.NotesIn(L.Language),r.Bytes,created=r.CreatedUtc},newer,
-            status=updateStatus.Length>0?updateStatus:!companion.Paired?"Vincula el dispositivo para consultar las versiones publicadas":r is null?"No hay versiones publicadas en este canal":newer?$"Hay una versión nueva: {r.Version}":"Tienes la última versión de este canal",
+        return new{current=AppVersion.Current,channel="github",paired=true,latest=r is null?null:new{r.Version,r.Notes,r.Bytes,created=r.CreatedUtc},newer,
+            status=updateStatus.Length>0?updateStatus:r is null?"Todavía no hay una compilación publicada en tu GitHub":newer?$"Hay una versión nueva: {r.Version}":"Tienes la última versión de tu GitHub",
             downloaded=updateFile is not null&&File.Exists(updateFile)};
     }
 
@@ -473,6 +479,7 @@ public sealed class MainWindow : Window
             if(ticks%600==120&&settings.SyncPets&&companion.Paired&&(companion.PetsPending||!companion.PetsUploadedOnce))foreach(var c in engine.Collection.All())await companion.UploadPets(c);
             // Account: pull every 20 s keeps the device active and checks the token is still valid (a 401 clears it).
             if(companion.Paired&&ticks%40==6)_=PullQuietly();
+            if(ticks%1200==6)_=CheckPersonalUpdate(quiet:true);
             // Voluntary diagnostics: version, channel and the capture / sync state, every 30 s and on changes.
             if(settings.ShareDiagnostics&&companion.Paired&&ticks%2==0)_=companion.SendDiagnosticsAsync(Diagnose());
             ShowAnnouncements();
@@ -755,12 +762,12 @@ public sealed class MainWindow : Window
                 case "news-open":OpenNews();break;
                 case "donate":System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(DonateUrl){UseShellExecute=true});message="Gracias por apoyarnos: la donación se hace en PayPal, en tu navegador.";break;
                 case "update-install":await InstallUpdate();break;
-                case "update-check":updateStatus="";await companion.Pull();message=LatestRelease() is {} found && AppVersion.IsNewer(found.Version,AppVersion.Current)?$"Versión {found.Version} disponible":"No hay una versión más nueva en este canal";break;
+                case "update-check":updateStatus="";await CheckPersonalUpdate(quiet:false);message=updateStatus;break;
                 case "update-download":
                 {
-                    var rel=LatestRelease()??throw new InvalidOperationException("No hay una versión publicada en este canal");
+                    var rel=LatestRelease()??throw new InvalidOperationException("No hay una versión publicada en tu GitHub");
                     updateStatus=$"Descargando {rel.Version}…";
-                    try{updateFile=await companion.DownloadReleaseAsync(rel,Path.Combine(Program.DataDirectory,"updates"));updateStatus=$"Versión {rel.Version} descargada y verificada (tamaño y SHA-256)";}
+                    try{updateFile=await GitHubUpdater.DownloadAsync(rel,Path.Combine(Program.DataDirectory,"updates"));updateStatus=$"Versión {rel.Version} descargada y verificada (tamaño y SHA-256)";}
                     catch(Exception ex){updateFile=null;updateStatus=ex.Message;throw;}
                     break;
                 }

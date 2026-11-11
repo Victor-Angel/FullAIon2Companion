@@ -48,11 +48,12 @@ public sealed class RoomRoster
     uint roomKey;
     public sealed record Saved(DateTime At, RoomInfo Room);
     static string FilePath => Path.Combine(Program.DataDirectory, "room.json");
-    // The game sends the roster only when the room changes: keep it across app restarts, for an hour at most.
+    // A saved room does not establish current membership after an app restart.
     public RoomRoster()
     {
-        try { if (File.Exists(FilePath) && JsonSerializer.Deserialize<Saved>(File.ReadAllText(FilePath)) is { } saved && DateTime.Now - saved.At < TimeSpan.FromHours(1)) room = saved.Room; } catch { }
+        try { File.Delete(FilePath); } catch { }
     }
+    public void Forget() { lock (gate) { room = null; ready.Clear(); roomKey = 0; Store(); } }
     void Store() { try { if (room is null) File.Delete(FilePath); else File.WriteAllText(FilePath, JsonSerializer.Serialize(new Saved(DateTime.Now, room))); } catch { } }
     static RoomRoster()
     {

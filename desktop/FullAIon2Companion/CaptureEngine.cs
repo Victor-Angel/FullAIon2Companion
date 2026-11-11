@@ -145,7 +145,7 @@ public sealed class CaptureEngine : IDisposable
     public (DateTime Start, int Kills) Session { get { lock(gate) return (sessionStart, sessionKills); } }
     public void ResetSession() { lock(gate) { sessionStart = DateTime.Now; sessionKills = 0; } pets.ResetSession(); inventory.ResetSession(); }
     readonly Dictionary<DamageEvent, HitExtra> extras=[];
-    readonly TroopRoster troop=new();
+    readonly TroopRoster troop;
     readonly OwnPosition ownPos=new();
     public PetTracker Pets => pets;
     /// <summary>Diagnostics: every reassembled frame with its time (replay analysis only).</summary>
@@ -218,7 +218,7 @@ public sealed class CaptureEngine : IDisposable
     public PetCollection Collection => collection;
     /// <summary>Files the pet list under the character on screen (see <see cref="PetCollection"/>).</summary>
     public void UpdateCollection(string? character, int? serverId, string region) { lock(gate) collection.Update(character, serverId, region, entities, pets.SoulsToday()); }
-    public void ForgetParty() => party.Forget();
+    public void ForgetParty() { party.Forget(); troop.Forget(); }
     readonly Stopwatch clock = Stopwatch.StartNew();
     readonly DateTime clockOrigin = DateTime.Now;
     /// <summary>The capture's monotonic clock, the one hit timestamps use.</summary>
@@ -264,6 +264,7 @@ public sealed class CaptureEngine : IDisposable
         PetFarmLog.PathOverride = Path.Combine(Program.DataDirectory, "pet-farm.log");
         localName = name;
         party = new(name);
+        troop = new(name);
         spawnHp.NpcMaxSeen += memory.SetExactMax;
         entities.SetConfiguredLocalName(name);
         decoder = new(protocol, entities);
@@ -1065,6 +1066,7 @@ public sealed class CaptureEngine : IDisposable
     public void Stop()
     {
         lock(gate) { sessionIdentity = null; carriedIdentity = null; Connection = null; }
+        party.Forget(); troop.Forget(); room.Forget();
         foreach(var device in devices) { device.OnPacketArrival -= Arrived; try { device.StopCapture(); device.Close(); } catch { } }
         devices.Clear(); recording?.Dispose(); recording = null;
         Status = "Captura detenida";

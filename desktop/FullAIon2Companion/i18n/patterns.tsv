@@ -171,6 +171,10 @@
 ^Novedades \((\d+)\)$	News ($1)	Novidades ($1)	Nouveautés ($1)
 ^Versión (\S+)$	Version $1	Versão $1	Version $1
 ^Tienes la (\S+) · (.+) MB(.*)$	You have $1 · $2 MB$3	Você tem a $1 · $2 MB$3	Tu as la $1 · $2 Mo$3
+^Versión (\S+) disponible$	Version $1 available	Versão $1 disponível	Version $1 disponible
+^Hay una versión nueva: (\S+)$	New version available: $1	Nova versão disponível: $1	Nouvelle version disponible : $1
+^Versión (\S+) · GitHub$	Version $1 · GitHub	Versão $1 · GitHub	Version $1 · GitHub
+^Daeva Companion · ([\d.,—]+) DPS$	Daeva Companion · $1 DPS	Daeva Companion · $1 DPS	Daeva Companion · $1 DPS
 ^Tienes la versión (\S+)\. No hay noticias nuevas\.$	You have version $1. No new news.	Você tem a versão $1. Sem notícias novas.	Tu as la version $1. Rien de nouveau.
 ^Descargando (\S+)…$	Downloading $1…	Baixando $1…	Téléchargement de la $1…
 ^Instalando (\S+): la app se cerrará y volverá a abrirse sola en unos segundos\.$	Installing $1: the app will close and open again by itself in a few seconds.	Instalando $1: o app vai fechar e abrir de novo sozinho em alguns segundos.	Installation de la $1 : l'app va se fermer et se rouvrir toute seule dans quelques secondes.

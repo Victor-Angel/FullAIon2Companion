@@ -16,9 +16,9 @@ public sealed class OverlayDock : Window
 {
     static readonly Brush Face = Frozen(Color.FromArgb(215, 13, 20, 27)), Edge = Frozen(Color.FromArgb(200, 51, 87, 91)),
         Glyph = Frozen(Color.FromRgb(0xC3, 0xCF, 0xD9)), Hover = Frozen(Color.FromArgb(255, 0x2B, 0x41, 0x4D)), On = Frozen(Color.FromRgb(0x71, 0xDE, 0xD6));
-    readonly Button drops, minimap, troop, news, abyss, craft;
+    readonly Button drops, minimap, troop, news, abyss, craft, fold;
     readonly System.Windows.Shapes.Ellipse newsDot = new() { Width = 8, Height = 8, Fill = Frozen(Color.FromRgb(0x5F, 0xE0, 0xA0)), Stroke = Frozen(Color.FromRgb(0x0D, 0x14, 0x1B)), StrokeThickness = 1.5, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Visibility = Visibility.Collapsed, IsHitTestVisible = false };
-    public event Action? DragFinished, DropsClicked, SettingsClicked, MinimapClicked, BreakdownClicked, TroopClicked, NewsClicked, AbyssClicked, CraftClicked;
+    public event Action? DragFinished, DropsClicked, SettingsClicked, MinimapClicked, BreakdownClicked, TroopClicked, NewsClicked, AbyssClicked, CraftClicked, FoldClicked;
     [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr hwnd, int index);
     [DllImport("user32.dll")] static extern int SetWindowLong(IntPtr hwnd, int index, int value);
     public OverlayDock()
@@ -32,6 +32,8 @@ public sealed class OverlayDock : Window
         drops = Icon("", "Panel del objetivo: botín de la criatura o perfil del jugador (Ctrl+Alt+B)", () => DropsClicked?.Invoke());
         var stack = new StackPanel();
         stack.Children.Add(grip);
+        fold = Icon("\uE8A5", "Plegar overlay a una barra", () => FoldClicked?.Invoke());
+        stack.Children.Add(fold);
         stack.Children.Add(drops);
         minimap = Icon("\uE707", "Minimapa (Ctrl+Alt+N)", () => MinimapClicked?.Invoke());
         stack.Children.Add(minimap);
@@ -56,6 +58,7 @@ public sealed class OverlayDock : Window
     }
     public void ApplyScale(double k) { ((FrameworkElement)Content).LayoutTransform = new ScaleTransform(k, k); Width = 32 * k; }
     public void SetNewsUnread(bool unread, string? tip = null) { newsDot.Visibility = unread ? Visibility.Visible : Visibility.Collapsed; news.ToolTip = tip ?? "Novedades: actualizaciones y noticias"; }
+    public void SetCollapsed(bool collapsed) { ((TextBlock)fold.Content).Text = collapsed ? "\uE8A7" : "\uE8A5"; fold.ToolTip = collapsed ? "Desplegar overlay" : "Plegar overlay a una barra"; }
     public void SetMinimapOn(bool on) => ((TextBlock)minimap.Content).Foreground = on ? On : Glyph;
     public void SetMinimapAccess(bool allowed) { minimap.ToolTip = allowed ? "Minimapa (Ctrl+Alt+N)" : "Minimapa"; minimap.Opacity = allowed ? 1 : .45; }
     public void SetDropsOn(bool on) => ((TextBlock)drops.Content).Foreground = on ? On : Glyph;

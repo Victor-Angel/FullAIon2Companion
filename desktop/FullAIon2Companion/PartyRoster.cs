@@ -34,15 +34,10 @@ public sealed class PartyRoster
     public PartyRoster(string localName)
     {
         this.localName = localName;
-        try
-        {
-            // A party saved hours ago is gone (a missed exit must not show strangers forever).
-            if (File.Exists(FilePath) && DateTime.Now - File.GetLastWriteTime(FilePath) < TimeSpan.FromHours(3) && JsonSerializer.Deserialize<Saved>(File.ReadAllText(FilePath)) is { } saved)
-            { partyId = saved.Id; names.UnionWith(saved.Names); foreach (var (k, n) in saved.Keys ?? []) keys[k] = n; }
-        }
-        catch { }
+        // Saved membership is not evidence of a current group after a restart or reconnect.
+        try { File.Delete(FilePath); } catch { }
     }
-    public IReadOnlySet<string> Names { get { lock (gate) return names.ToHashSet(StringComparer.Ordinal); } }
+    public IReadOnlySet<string> Names { get { lock (gate) return names.Contains(localName, StringComparer.OrdinalIgnoreCase) ? names.ToHashSet(StringComparer.Ordinal) : new HashSet<string>(StringComparer.Ordinal); } }
     public void Add(ReadOnlySpan<byte> frame) => Frames.Walk(frame, Parse);
     void Parse(ReadOnlySpan<byte> frame)
     {
@@ -58,6 +53,7 @@ public sealed class PartyRoster
             lock (gate)
             {
                 if (leftParty != partyId || !keys.TryGetValue(key, out var gone)) return;
+                if (gone.Equals(localName, StringComparison.OrdinalIgnoreCase)) { Forget(); return; }
                 names.Remove(gone); keys.Remove(key);
                 SaveLocked();
             }

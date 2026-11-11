@@ -24,6 +24,7 @@ public sealed class AppSettings
     public double? OverlayLeft { get; set; }
     public double? OverlayTop { get; set; }
     public bool OverlayVisible { get; set; }
+    public bool OverlayCollapsed { get; set; }
     public bool BossSounds { get; set; } = true;
     public bool OverlayDrops { get; set; } = true;
     /// <summary>The Abyss card beside the overlay (the strip's medal): ranking, points and the session farming there.</summary>

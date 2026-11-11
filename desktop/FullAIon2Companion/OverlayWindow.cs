@@ -102,6 +102,9 @@ public sealed partial class OverlayWindow : Window
     // Pinned pets: one card each under the overlay (portrait, level, progress bar, souls left), Mascotas tab → Fijar.
     readonly StackPanel pinCards = new() { Margin = new Thickness(0, 4, 0, 0) };
     readonly StackPanel contentStack = new();
+    readonly StackPanel normalStack = new();
+    readonly TextBlock compactText = Label("Daeva Companion · — DPS", 11, Teal);
+    readonly Border compactBar = new() { Visibility = Visibility.Collapsed, Padding = new Thickness(10, 7, 10, 7), CornerRadius = new CornerRadius(7), BorderBrush = Frame, BorderThickness = new Thickness(1) };
     // Countdown chips under the header (TeamMate's Field bosses / Rifts / Shugo buttons): the next field boss, rift and Shugo.
     readonly WrapPanel headerTimers = new() { Visibility = Visibility.Collapsed };
     public void SetHeaderTimers(IReadOnlyList<(string Icon, string Name, string Color, DateTime At)> items)
@@ -515,7 +518,8 @@ public sealed partial class OverlayWindow : Window
         var withGrip=new Grid();withGrip.Children.Add(patternLayer);withGrip.Children.Add(rootLayout);withGrip.Children.Add(topBar);withGrip.Children.Add(grip);
         root=new Border{Background=new SolidColorBrush(Color.FromArgb(alpha,13,20,27)),BorderBrush=Frame,BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Child=withGrip};
         BuildGrip();
-        BuildCubeBar();contentStack.Children.Add(cubeBar);rootHost.Children.Add(glowLayer);rootHost.Children.Add(root);contentStack.Children.Add(rootHost);contentStack.Children.Add(pinCards);Content=contentStack;
+        BuildCubeBar();normalStack.Children.Add(cubeBar);rootHost.Children.Add(glowLayer);rootHost.Children.Add(root);normalStack.Children.Add(rootHost);normalStack.Children.Add(pinCards);
+        compactBar.Child=compactText;compactBar.Background=Paint("#E20D141B");contentStack.Children.Add(normalStack);contentStack.Children.Add(compactBar);Content=contentStack;
         SourceInitialized+=(_,_)=>ApplyStyle();
         MouseLeftButtonDown+=(_,e)=>{if(ClickThrough||e.ButtonState!=MouseButtonState.Pressed)return;DragMove();SavePosition();};
         drops=new(settings.OverlayOpacity);
@@ -533,6 +537,8 @@ public sealed partial class OverlayWindow : Window
         dock.BreakdownClicked+=()=>BreakdownRequested?.Invoke(0);
         dock.NewsClicked+=()=>NewsRequested?.Invoke();
         dock.SetTroopOn(settings.OverlayTroopAll);
+        dock.FoldClicked+=ToggleFold;
+        ApplyFold();
         dock.TroopClicked+=()=>{settings.OverlayTroopAll=!settings.OverlayTroopAll;settings.Save();dock.SetTroopOn(settings.OverlayTroopAll);};
         // With the overlay unlocked (Ctrl+Alt+M), a click on the own name opens the breakdown, as in the game's analyzer.
         selfName.Cursor=Cursors.Hand;selfName.MouseLeftButtonDown+=(_,e)=>{if(ClickThrough)return;e.Handled=true;BreakdownRequested?.Invoke(0);};
@@ -556,7 +562,7 @@ public sealed partial class OverlayWindow : Window
         var back=C(palette.Back);byte a=(byte)(alpha*palette.Glass);
         // A second colour makes the background a vertical gradient (Gamer Girl, Synthwave, Steampunk...).
         root.Background=look.Back2 is {} second?new LinearGradientBrush(Color.FromArgb(a,back.R,back.G,back.B),Color.FromArgb(a,C(second).R,C(second).G,C(second).B),90):new SolidColorBrush(Color.FromArgb(a,back.R,back.G,back.B));
-        contentStack.LayoutTransform=new ScaleTransform(k,k);Width=LayoutWidth*k;
+        contentStack.LayoutTransform=new ScaleTransform(k,k);Width=(settings.OverlayCollapsed?220:LayoutWidth)*k;
         dock.ApplyScale(k);drops.ApplyAppearance(alpha,k);abyssCard.ApplyAppearance(alpha,settings.AbyssScale??k);craftCard.ApplyAppearance(alpha,settings.CraftScale??k);player.ApplyAppearance(alpha,k);
         Arrange(fromDock:false);
     }
@@ -629,6 +635,13 @@ public sealed partial class OverlayWindow : Window
         BossCast?.Invoke(new CastRow(0, "Kelpina de onda azul", 1502850, "Spirit Wave", 0, true, true));
     }
     void SavePosition(){settings.OverlayLeft=Math.Round(Left);settings.OverlayTop=Math.Round(Top);settings.Save();}
+    void ToggleFold(){settings.OverlayCollapsed=!settings.OverlayCollapsed;settings.Save();ApplyFold();ApplyAppearance();}
+    void ApplyFold()
+    {
+        normalStack.Visibility=settings.OverlayCollapsed?Visibility.Collapsed:Visibility.Visible;
+        compactBar.Visibility=settings.OverlayCollapsed?Visibility.Visible:Visibility.Collapsed;
+        dock.SetCollapsed(settings.OverlayCollapsed);
+    }
     void Arrange(bool fromDock)
     {
         if(arranging)return;arranging=true;
@@ -741,6 +754,7 @@ public sealed partial class OverlayWindow : Window
     }
     public void Update(CaptureSnapshot s, TimerRow? e, IReadOnlyList<ActorRow> players)
     {
+        compactText.Text=$"Daeva Companion · {s.Dps:N0} DPS";
         var now = DateTime.Now;
         // The fight goes on while its clock runs: the engine's clock (Duration) moves with the damage you or your group deal or
         // take. Only your own damage counted before: on 2026-10-24, 6 s without your hits halfway through Lakshmi de ensueño
@@ -848,7 +862,10 @@ public sealed partial class OverlayWindow : Window
         string? ClassOf(string name) => shown?.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase))?.ClassKey ?? RoomOf(name)?.ClassKey
             ?? (PlayerProfiles.Get(name, s.LocalServerId ?? settings.LastServerId, troopRegion).Card is { } c && ClassKeys.TryGetValue(c.ClassName, out var k) ? k : null);
         // The ones with the most damage (you always among them), ordered by DPS: the bars too; the % is each one's part of the damage.
-        var top = CaptureEngine.TopByDps(players.Where(p => p.Damage > 0), wholeTroop ? 12 : 6, s.LocalId);
+        var rosterNames = s.Room is { Members.Count: > 1 } roomMembers ? roomMembers.Members.Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : troop is { Members.Count: > 1 } ? (wholeTroop ? troop.Members : shown ?? []).Select(m => m.Name).ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : s.Party is { Count: > 1 } partyMembers ? partyMembers.ToHashSet(StringComparer.OrdinalIgnoreCase) : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var top = CaptureEngine.TopByDps(players.Where(p => p.Damage > 0 && rosterNames.Contains(p.Name)), wholeTroop ? 12 : 6, s.LocalId);
         double best = CaptureEngine.BestDps(top); long most = top.Count == 0 ? 1 : top.Max(p => p.Damage), sum = Math.Max(1, players.Sum(p => p.Damage));
         long? PowerOf(string name) => shown?.FirstOrDefault(m => m.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) is { CombatPower: > 0 } tm ? tm.CombatPower
             : RoomOf(name) is { CombatPower: > 0 } rm ? rm.CombatPower
@@ -858,7 +875,7 @@ public sealed partial class OverlayWindow : Window
             if (wholeTroop) party.Children.Add(Label($"TROPA · DAÑO · {players.Count(p => p.Damage > 0)} con daño", 9.5, Dim));
             for (int i = 0; i < top.Count; i++) party.Children.Add(PartyRow(i + 1, top[i], top[i].Id == s.LocalId, CaptureEngine.BarOf(top[i], best, most), (double)top[i].Damage / sum, ClassOf(top[i].Name), PowerOf(top[i].Name), CaptureEngine.Ranks(top[i])));
         }
-        else if (s.Room is { Members.Count: > 0 } roomInfo)
+        else if (s.Room is { Members.Count: > 1 } roomInfo)
         {
             // In an instance room: its roster as the game sends it (server, gear score, combat power, leader).
             party.Children.Add(Label($"SALA · {roomInfo.Dungeon} · {roomInfo.Members.Count}/{roomInfo.Capacity} · {roomInfo.Members.Count(m => m.Ready || m.Leader)}/{roomInfo.Members.Count} listos", 9.5, Gold));

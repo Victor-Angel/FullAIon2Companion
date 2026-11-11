@@ -30,7 +30,7 @@ public sealed record TroopInfo(bool IsTroop, int OwnGroup, IReadOnlyList<TroopMe
 /// </summary>
 public sealed class TroopRoster
 {
-    const int Troop = 0x0296, GroupList = 0x1D96, OwnList = 0x0092, Joined = 0x0A96, Left = 0x2296, GroupLeft = 0x2396, YouLeft = 0x0C96, Detail = 0x2C96, Status = 0x1C92, Groups = 0x1E96;
+    const int Troop = 0x0296, GroupList = 0x1D96, OwnList = 0x0092, Joined = 0x0A96, Left = 0x2296, GroupLeft = 0x2396, YouLeft = 0x0C96, ExitParty = 0x1D97, Detail = 0x2C96, Status = 0x1C92, Groups = 0x1E96;
     sealed record Group(int Number, Dictionary<uint, TroopMember> Members);
     public sealed record Saved(DateTime At, string? Own, Dictionary<string, int> Numbers, List<TroopMember> Members, Dictionary<uint, int[]> Details);
     readonly Dictionary<string, Group> groups = [];
@@ -39,24 +39,16 @@ public sealed class TroopRoster
     // World position by member key (2C 96 and 1C 92 carry it every second or two): the minimap shows the troop.
     readonly Dictionary<uint, (float X, float Y, DateTime At)> positions = [];
     readonly object gate = new();
+    readonly string localName;
     string? ownGroup;
     bool troop;
     static string FilePath => Path.Combine(Program.DataDirectory, "troop.json");
 
-    public TroopRoster()
+    public TroopRoster(string localName = "")
     {
-        try
-        {
-            if (File.Exists(FilePath) && JsonSerializer.Deserialize<Saved>(File.ReadAllText(FilePath)) is { } s && DateTime.Now - s.At < TimeSpan.FromHours(2))
-            {
-                ownGroup = s.Own;
-                foreach (var (id, n) in s.Numbers) groups[id] = new(n, []);
-                foreach (var m in s.Members) if (groups.FirstOrDefault(g => g.Value.Number == m.Group).Value is { } g) g.Members[m.Key] = m;
-                foreach (var (k, v) in s.Details) details[k] = v;
-                troop = groups.Count > 1;
-            }
-        }
-        catch { }
+        // A saved roster cannot prove current membership after restarting the app or reconnecting to the game.
+        this.localName = localName;
+        try { File.Delete(FilePath); } catch { }
     }
     /// <summary>The roster now, or null outside any party.</summary>
     public TroopInfo? Current
@@ -65,8 +57,10 @@ public sealed class TroopRoster
         {
             lock (gate)
             {
-                if (ownGroup is null || !groups.TryGetValue(ownGroup, out var own) || groups.Values.Sum(g => g.Members.Count) == 0) return null;
+                if (ownGroup is null || !groups.TryGetValue(ownGroup, out var own) ||
+                    !own.Members.Values.Any(m => m.Name.Equals(localName, StringComparison.OrdinalIgnoreCase))) return null;
                 var all = groups.Values.SelectMany(g => g.Members.Values).Select(WithDetails).OrderBy(m => m.Group).ThenBy(m => m.Slot).ToList();
+                if (all.Count < 2) return null;
                 return new(troop || groups.Count > 1, own.Number, all);
             }
         }
@@ -87,7 +81,8 @@ public sealed class TroopRoster
             switch (opcode)
             {
                 case YouLeft when f.Length == 4 && f[2] == 0 && f[3] == 0:
-                    groups.Clear(); ownGroup = null; troop = false; Save(); return;
+                case ExitParty:
+                    Forget(); return;
                 case Troop when f.Length > 40:
                 {
                     // The own group's id and number follow the 02 01 02 01 marker.
@@ -116,6 +111,8 @@ public sealed class TroopRoster
                     int number = groups.TryGetValue(id, out var known) ? known.Number : 1;
                     var members = Entries(f[11..], number);
                     if (members.Count == 0) return;
+                    if (members.Count == 1 && members[0].Name.Equals(localName, StringComparison.OrdinalIgnoreCase)) { Forget(); return; }
+                    if (ownGroup is not null && ownGroup != id) { groups.Clear(); details.Clear(); positions.Clear(); troop = false; }
                     SetGroup(id, number, members, replace: true);
                     ownGroup = id;
                     Save(); return;
@@ -132,13 +129,18 @@ public sealed class TroopRoster
                 {
                     uint key = BinaryPrimitives.ReadUInt32LittleEndian(f[2..]);
                     string id = Convert.ToHexString(f.Slice(10, 8));
-                    if (groups.TryGetValue(id, out var g) && g.Members.Remove(key)) Save();
+                    if (groups.TryGetValue(id, out var g) && g.Members.Remove(key))
+                    {
+                        if (id == ownGroup && !g.Members.Values.Any(m => m.Name.Equals(localName, StringComparison.OrdinalIgnoreCase))) Forget();
+                        else Save();
+                    }
                     return;
                 }
                 case GroupLeft when f.Length >= 10:
                 {
                     string id = Convert.ToHexString(f.Slice(2, 8));
-                    if (id != ownGroup && groups.Remove(id)) { troop = groups.Count > 1; Save(); }
+                    if (id == ownGroup) Forget();
+                    else if (groups.Remove(id)) { troop = groups.Count > 1; Save(); }
                     return;
                 }
                 case Groups when f.Length > 30:
@@ -167,6 +169,10 @@ public sealed class TroopRoster
                     Position(f); return;
             }
         }
+    }
+    public void Forget()
+    {
+        lock (gate) { groups.Clear(); details.Clear(); positions.Clear(); ownGroup = null; troop = false; Save(); }
     }
     void SetGroup(string id, int number, List<TroopMember> members, bool replace)
     {
