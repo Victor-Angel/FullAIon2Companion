@@ -404,7 +404,7 @@ function localSeries(armour,pieces){
  if(!named||named.length<2)return null;
  const adj=named[named.length-1];return `${head} ${!armour&&!/[sx]$/.test(adj)?adj+'s':adj}`;
 }
-function applyLanguage(lang){uiLang=lang||'es';document.documentElement.lang=uiLang==='pt'?'pt-BR':uiLang;itemTable();i18nBusy=true;try{i18nNode(document.body);}finally{i18nBusy=false;}styleThumbs();const sel=$('cfg-language');if(sel&&document.activeElement!==sel)sel.value=uiLang;}
+function applyLanguage(lang){uiLang=lang||'es';petOptions=false;document.documentElement.lang=uiLang==='pt'?'pt-BR':uiLang;itemTable();i18nBusy=true;try{i18nNode(document.body);}finally{i18nBusy=false;}styleThumbs();const sel=$('cfg-language');if(sel&&document.activeElement!==sel)sel.value=uiLang;}
 new MutationObserver(list=>{if(i18nBusy||uiLang==='es')return;i18nBusy=true;try{for(const m of list){if(m.type==='characterData')i18nNode(m.target);else m.addedNodes.forEach(i18nNode);}}finally{i18nBusy=false;}})
  .observe(document.documentElement,{childList:true,subtree:true,characterData:true});
 fetch('/data/i18n.json').then(r=>r.json()).then(d=>{i18nDict=d;applyLanguage(data?.settings?.Language||uiLang);}).catch(()=>{});

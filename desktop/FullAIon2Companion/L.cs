@@ -1,4 +1,5 @@
 using System.IO;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -18,7 +19,19 @@ namespace FullAIon2Companion;
 /// </summary>
 public static class L
 {
-    public static string Language { get; set; } = "es";
+    static string language = "es";
+    public static string Language
+    {
+        get => language;
+        set
+        {
+            language = value;
+            // WPF number and date formatting follows the selected interface language.
+            var culture = CultureInfo.GetCultureInfo(value switch { "en" => "en-GB", "pt" => "pt-BR", "fr" => "fr-FR", _ => "es-CL" });
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
+        }
+    }
     static readonly Dictionary<string, Dictionary<string, string>> exact = LoadExact();
     static readonly List<(Regex Re, string En, string Pt, string Fr)> patterns = LoadPatterns();
     // The text of the current language among English, Portuguese and French (Spanish never gets here).

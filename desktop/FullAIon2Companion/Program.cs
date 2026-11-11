@@ -1509,16 +1509,16 @@ public static class Program
                     var detail = JsonDocument.Parse("{\"kill_count\":194,\"death_count\":269,\"assist_count\":381}").RootElement.Clone();
                     var classRank = new RankingWatch.Entry(1, 2, 30, 1, 261_725, 941, now.AddMinutes(30), now.AddMinutes(-5), detail);
                     var allRank = new RankingWatch.Entry(1, 0, 309, -5, 261_725, 7_092, now.AddMinutes(30), now.AddMinutes(-5), detail);
-                    var timers = new List<(string, string, string, DateTime)> { ("♛", "Danar fundido", "#C9B98F", now.AddSeconds(28 * 60 + 55)), ("◈", "Grieta", "#8b5cf6", now.AddSeconds(2 * 3600 + 6 * 60 + 47)), ("✦", "Shugo", "#3b82f6", now.AddSeconds(6 * 60 + 47)) };
+                    var timers = new List<(string, string, string, DateTime)> { ("♛", Catalog.NpcName(2400017), "#C9B98F", now.AddSeconds(28 * 60 + 55)), ("◈", L.T("Grieta"), "#8b5cf6", now.AddSeconds(2 * 3600 + 6 * 60 + 47)), ("✦", "Shugo", "#3b82f6", now.AddSeconds(6 * 60 + 47)) };
                     var cube = new CubeView(new CubeSighting(now.AddMinutes(-2), "", 0, 0, 0, 1, 1301199, LeftRangeAt: now.AddSeconds(-30)), 2971, 20, null, 0, null, null, null, []);
-                    var pins = new List<PetStatus> { new(1030, "Guardián guerrero Nagarant", 1, 22, 25, 3, 0, 0, null, null, "Cognis", []), new(1005, "Klaw", 2, 13, 75, 62, 0, 0, null, null, "Cognis", []) };
+                    var pins = new List<PetStatus> { new(1030, PetTracker.NameOf(1030) ?? "Nagarant", 1, 22, 25, 3, 0, 0, null, null, "Cognis", []), new(1005, PetTracker.NameOf(1005) ?? "Klaw", 2, 13, 75, 62, 0, 0, null, null, "Cognis", []) };
                     var troop = new TroopInfo(true, 3, [new TroopMember(1, "Darkni", 2401, 3, 1, 5, 45, 0, null, 2713, 139_800), new TroopMember(2, "Lyra", 2401, 3, 2, 33, 45, 0, null, 1933, 95_700)]);
                     var players = new List<ActorRow> { new(325, "Darkni", 1_700_000, 21_808, 29_600), new(77, "Lyra", 1_180_000, 15_100, 0) };
                     var festival = new TimerRow("shugo", "Festival de Shugo", "#E9C77E", DateTimeOffset.Now.AddSeconds(407), 407, false, null, null);
                     CaptureSnapshot Snapshot(TargetInfo? target) => new("Captura activa · Ethernet", 1000, 900, 500, 0, "", 325, "Darkni", 1_700_000, 29_600, 21_808, 75, 7, 0, target, [], players,
                         0, 0, 0, false, LocalServerId: 2401, PingMs: 57, Pet: new PetHunt(null, [], null, null, null, pins, 0), Od: new OdEnergy.State(30, 25, now), Troop: troop, World: 20,
                         TargetDamage: target is null ? 0 : 1_520_000, TargetDps: target is null ? 0 : 23_450);
-                    var nutah = new TargetInfo(9001, 2400353, "Nutah supervisor jefe", null, 113_200_000, 160_000_000, true, 2_400_000, 47, 17);
+                    var nutah = new TargetInfo(9001, 2400353, Catalog.NpcName(2400353), null, 113_200_000, 160_000_000, true, 2_400_000, 47, 17);
                     var written = new List<string>();
                     foreach (var style in OverlayWindow.Styles)
                         foreach (bool calm in new[] { true, false })

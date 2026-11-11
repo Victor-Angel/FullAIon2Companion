@@ -66,8 +66,11 @@ public sealed class PetTracker
         try { if (File.Exists(FilePath)) tracked = JsonSerializer.Deserialize<Saved>(File.ReadAllText(FilePath)); } catch { }
         try { if (File.Exists(DayPath) && JsonSerializer.Deserialize<Day>(File.ReadAllText(DayPath)) is { } d && d.Date == DateOnly.FromDateTime(DateTime.Now)) day = d; } catch { }
     }
-    /// <summary>Every pet with its Spanish name, for the picker.</summary>
-    public static IReadOnlyList<(int Id, string Name)> All => petNames.OrderBy(p => p.Value).Select(p => (p.Key, p.Value)).ToList();
+    /// <summary>Every pet with its name in the selected interface language, for the picker.</summary>
+    public static IReadOnlyList<(int Id, string Name)> All => petNames.Keys
+        .Select(id => (Id: id, Name: NameOf(id) ?? petNames[id]))
+        .OrderBy(p => p.Name)
+        .ToList();
     // The five groups of the pet window, in its order.
     static readonly Dictionary<string, string> CategoryNames = new() { ["Intellect"] = "Intelecto", ["Feral"] = "Salvaje", ["Nature"] = "Naturaleza", ["Trans"] = "Transformación", ["Special"] = "Especial" };
     public static IReadOnlyList<string> Categories => ["Intelecto", "Salvaje", "Naturaleza", "Transformación", "Especial"];
@@ -222,9 +225,9 @@ public sealed class PetTracker
         lock (gate)
         {
             var rows = day.Pets.Where(p => petNames.ContainsKey(p.Key) && (p.Value[0] > 0 || p.Value[1] > 0))
-                .Select(p => new PetDay(p.Key, petNames[p.Key], p.Value[0], p.Value[1], p.Value[1] >= 5 && p.Value[0] > 0 ? (double)p.Value[0] / p.Value[1] : null))
+                .Select(p => new PetDay(p.Key, NameOf(p.Key) ?? petNames[p.Key], p.Value[0], p.Value[1], p.Value[1] >= 5 && p.Value[0] > 0 ? (double)p.Value[0] / p.Value[1] : null))
                 .OrderByDescending(r => r.Souls).ThenByDescending(r => r.Kills).ToList();
-            return new(followed, rows, day.LastPet is int last && petNames.TryGetValue(last, out var n) ? n : null, day.LastAt, target, pins, sessionSouls);
+            return new(followed, rows, day.LastPet is int last ? NameOf(last) : null, day.LastAt, target, pins, sessionSouls);
         }
     }
     void Save() { try { File.WriteAllText(FilePath, JsonSerializer.Serialize(tracked)); } catch { } }
